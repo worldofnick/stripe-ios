@@ -16,29 +16,12 @@ struct ExampleSwiftUICustomPaymentFlow: View {
     var body: some View {
         VStack {
             if let paymentSheetFlowController = model.paymentSheetFlowController {
-                PaymentSheet.FlowController.PaymentOptionsButton(
-                    paymentSheetFlowController: paymentSheetFlowController,
-                    onSheetDismissed: model.onOptionsCompletion
-                ) {
-                    ExamplePaymentOptionView(
-                        paymentOptionDisplayData: paymentSheetFlowController.paymentOption)
-                }
-                Button(action: {
-                    // If you need to update the PaymentIntent's amount, you should do it here and
-                    // set the `isConfirmingPayment` binding after your update completes.
-                    isConfirmingPayment = true
-                }) {
-                    if isConfirmingPayment {
-                        ExampleLoadingView()
-                    } else {
-                        ExamplePaymentButtonView()
-                    }
-                }.paymentConfirmationSheet(
-                    isConfirming: $isConfirmingPayment,
-                    paymentSheetFlowController: paymentSheetFlowController,
+                FlowControllerView(
+                    flowController: paymentSheetFlowController,
+                    isConfirmingPayment: $isConfirmingPayment,
+                    onOptionsCompletion: model.onOptionsCompletion,
                     onCompletion: model.onCompletion
                 )
-                .disabled(paymentSheetFlowController.paymentOption == nil || isConfirmingPayment)
             } else {
                 ExampleLoadingView()
             }
@@ -47,7 +30,39 @@ struct ExampleSwiftUICustomPaymentFlow: View {
             }
         }.onAppear { model.preparePaymentSheet() }
     }
+}
 
+struct FlowControllerView: View {
+    @ObservedObject var flowController: PaymentSheet.FlowController
+    @Binding var isConfirmingPayment: Bool
+    let onOptionsCompletion: () -> Void
+    let onCompletion: (PaymentSheetResult) -> Void
+    
+    var body: some View {
+        PaymentSheet.FlowController.PaymentOptionsButton(
+            paymentSheetFlowController: flowController,
+            onSheetDismissed: onOptionsCompletion
+        ) {
+            ExamplePaymentOptionView(
+                paymentOptionDisplayData: flowController.paymentOption)
+        }
+        Button(action: {
+            // If you need to update the PaymentIntent's amount, you should do it here and
+            // set the `isConfirmingPayment` binding after your update completes.
+            isConfirmingPayment = true
+        }) {
+            if isConfirmingPayment {
+                ExampleLoadingView()
+            } else {
+                ExamplePaymentButtonView()
+            }
+        }.paymentConfirmationSheet(
+            isConfirming: $isConfirmingPayment,
+            paymentSheetFlowController: flowController,
+            onCompletion: onCompletion
+        )
+        .disabled(flowController.paymentOption == nil || isConfirmingPayment)
+    }
 }
 
 class MyCustomBackendModel: ObservableObject {
