@@ -13,33 +13,12 @@ struct ExampleWalletButtonsView: View {
         if #available(iOS 16.0, *) {
             VStack {
                 if let flowController = model.paymentSheetFlowController {
-                    if flowController.paymentOption == nil {
-                        WalletButtonsView(flowController: flowController) { _ in
-                        }
-                    }
-                    PaymentSheet.FlowController.PaymentOptionsButton(
-                        paymentSheetFlowController: flowController,
-                        onSheetDismissed: model.onOptionsCompletion
-                    ) {
-                        ExamplePaymentOptionView(
-                            paymentOptionDisplayData: flowController.paymentOption)
-                    }
-                    Button(action: {
-                        // If you need to update the PaymentIntent's amount, you should do it here and
-                        // set the `isConfirmingPayment` binding after your update completes.
-                        isConfirmingPayment = true
-                    }) {
-                        if isConfirmingPayment {
-                            ExampleLoadingView()
-                        } else {
-                            ExamplePaymentButtonView()
-                        }
-                    }.paymentConfirmationSheet(
-                        isConfirming: $isConfirmingPayment,
-                        paymentSheetFlowController: flowController,
+                    WalletButtonsFlowControllerView(
+                        flowController: flowController,
+                        isConfirmingPayment: $isConfirmingPayment,
+                        onOptionsCompletion: model.onOptionsCompletion,
                         onCompletion: model.onCompletion
                     )
-                    .disabled(flowController.paymentOption == nil || isConfirmingPayment)
                 } else {
                     ExampleLoadingView()
                 }
@@ -52,6 +31,44 @@ struct ExampleWalletButtonsView: View {
         } else {
             Text("Use >= iOS 16.0")
         }
+    }
+}
+
+@available(iOS 16.0, *)
+struct WalletButtonsFlowControllerView: View {
+    @ObservedObject var flowController: PaymentSheet.FlowController
+    @Binding var isConfirmingPayment: Bool
+    let onOptionsCompletion: () -> Void
+    let onCompletion: (PaymentSheetResult) -> Void
+    
+    var body: some View {
+        if flowController.paymentOption == nil {
+            WalletButtonsView(flowController: flowController) { _ in
+            }
+        }
+        PaymentSheet.FlowController.PaymentOptionsButton(
+            paymentSheetFlowController: flowController,
+            onSheetDismissed: onOptionsCompletion
+        ) {
+            ExamplePaymentOptionView(
+                paymentOptionDisplayData: flowController.paymentOption)
+        }
+        Button(action: {
+            // If you need to update the PaymentIntent's amount, you should do it here and
+            // set the `isConfirmingPayment` binding after your update completes.
+            isConfirmingPayment = true
+        }) {
+            if isConfirmingPayment {
+                ExampleLoadingView()
+            } else {
+                ExamplePaymentButtonView()
+            }
+        }.paymentConfirmationSheet(
+            isConfirming: $isConfirmingPayment,
+            paymentSheetFlowController: flowController,
+            onCompletion: onCompletion
+        )
+        .disabled(flowController.paymentOption == nil || isConfirmingPayment)
     }
 }
 
