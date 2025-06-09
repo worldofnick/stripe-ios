@@ -6,6 +6,7 @@
 //  Copyright © 2020 Stripe, Inc. All rights reserved.
 //
 
+import Combine
 import Foundation
 import SafariServices
 @_spi(STP) import StripeCore
@@ -119,7 +120,7 @@ extension PaymentSheet {
     }
 
     /// A class that presents the individual steps of a payment flow
-    public class FlowController {
+    public class FlowController: ObservableObject {
         // MARK: - Public properties
         /// Contains details about a payment method that can be displayed to the customer
         public struct PaymentOptionDisplayData {
@@ -177,12 +178,7 @@ extension PaymentSheet {
 
         /// Contains information about the customer's desired payment option.
         /// You can use this to e.g. display the payment option in your UI.
-        public var paymentOption: PaymentOptionDisplayData? {
-            if let selectedPaymentOption = _paymentOption {
-                return PaymentOptionDisplayData(paymentOption: selectedPaymentOption, currency: intent.currency)
-            }
-            return nil
-        }
+        @Published public private(set) var paymentOption: PaymentOptionDisplayData?
 
         // MARK: - Private properties
         var intent: Intent { viewController.intent }
@@ -258,6 +254,7 @@ extension PaymentSheet {
             self.analyticsHelper.logInitialized()
             self.viewController = Self.makeViewController(configuration: configuration, loadResult: loadResult, analyticsHelper: analyticsHelper, walletButtonsShownExternally: self.walletButtonsShownExternally)
             self.viewController.flowControllerDelegate = self
+            updatePaymentOption()
         }
 
         // MARK: - Public methods
@@ -343,8 +340,7 @@ extension PaymentSheet {
                     )
 
                     // Synchronously pre-load image into cache.
-                    // Accessing flowController.paymentOption has the side-effect of ensuring its `image` property is loaded (e.g. from the internet instead of disk) before we call the completion handler.
-                    _ = flowController.paymentOption
+                    flowController.preloadPaymentOptionImage()
                     completion(.success(flowController))
                 case .failure(let error):
                     completion(.failure(error))
@@ -425,10 +421,12 @@ extension PaymentSheet {
 
                 if let confirmOption {
                     self.viewController.linkConfirmOption = confirmOption
+                    self.updatePaymentOption()
                 }
 
                 if shouldReturnToPaymentSheet {
                     self.viewController.linkConfirmOption = nil
+                    self.updatePaymentOption()
                     returnToPaymentSheet()
                     return
                 }
@@ -571,9 +569,9 @@ extension PaymentSheet {
                     )
                     self.viewController.flowControllerDelegate = self
 
-                    // Synchronously pre-load image into cache
-                    // Accessing paymentOption has the side-effect of ensuring its `image` property is loaded (e.g. from the internet instead of disk) before we call the completion handler.
-                    _ = self.paymentOption
+                    // Update the payment option and synchronously pre-load image into cache
+                    self.updatePaymentOption()
+                    self.preloadPaymentOptionImage()
 
                     self.latestUpdateContext?.status = .completed
                     completion(nil)
@@ -594,6 +592,33 @@ extension PaymentSheet {
                 previousPaymentOption: self._paymentOption
             )
             self.viewController.flowControllerDelegate = self
+            updatePaymentOption()
+        }
+        
+        /// Updates the published paymentOption property based on the current state
+        internal func updatePaymentOption() {
+            if Thread.isMainThread {
+                if let selectedPaymentOption = _paymentOption {
+                    paymentOption = PaymentOptionDisplayData(paymentOption: selectedPaymentOption, currency: intent.currency)
+                } else {
+                    paymentOption = nil
+                }
+            } else {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self else { return }
+                    if let selectedPaymentOption = self._paymentOption {
+                        self.paymentOption = PaymentOptionDisplayData(paymentOption: selectedPaymentOption, currency: self.intent.currency)
+                    } else {
+                        self.paymentOption = nil
+                    }
+                }
+            }
+        }
+        
+        /// Preloads the payment option image into cache
+        private func preloadPaymentOptionImage() {
+            // Accessing paymentOption has the side-effect of ensuring its `image` property is loaded (e.g. from the internet instead of disk)
+            _ = paymentOption?.image
         }
 
         // MARK: Internal helper methods
@@ -658,6 +683,7 @@ extension PaymentSheet.FlowController: FlowControllerViewControllerDelegate {
             self.didPresentAndContinue = true
         }
         flowControllerViewController.dismiss(animated: true) {
+            self.updatePaymentOption()
             self.presentPaymentOptionsCompletion?()
             self.isPresented = false
         }

@@ -110,8 +110,7 @@ class ExampleWalletButtonsModel: ObservableObject {
     }
 
     func onOptionsCompletion() {
-        // Tell our observer to refresh
-        objectWillChange.send()
+        // No need to manually trigger objectWillChange since paymentOption is now @Published
     }
 
     func onCompletion(result: PaymentSheetResult) {
