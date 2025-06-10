@@ -534,6 +534,32 @@ class CustomerSheetSnapshotTests: STPSnapshotTestCase {
         verify(cs.bottomSheetViewController.view!)
     }
 
+    func testCustomerSheetIconStyleFilled() {
+        stubSessions(paymentMethods: "\"card\"")
+        let customerAdapter = StubCustomerAdapter()
+        customerAdapter.paymentMethods = [stubbedPaymentMethod()]
+        
+        var configuration = configuration(applePayEnabled: false)
+        configuration.appearance.iconStyle = .filled
+        
+        prepareCS(configuration: configuration, customerAdapter: customerAdapter)
+        presentCS(darkMode: false)
+        verify(cs.bottomSheetViewController.view!)
+    }
+
+    func testCustomerSheetIconStyleOutlined() {
+        stubSessions(paymentMethods: "\"card\"")
+        let customerAdapter = StubCustomerAdapter()
+        customerAdapter.paymentMethods = [stubbedPaymentMethod()]
+        
+        var configuration = configuration(applePayEnabled: false)
+        configuration.appearance.iconStyle = .outlined
+        
+        prepareCS(configuration: configuration, customerAdapter: customerAdapter)
+        presentCS(darkMode: false)
+        verify(cs.bottomSheetViewController.view!)
+    }
+
     private func billingDetails() -> PaymentSheet.BillingDetails {
         return .init(
             address: .init(

@@ -30,6 +30,18 @@ final class SavedPaymentOptionsViewControllerSnapshotTests: STPSnapshotTestCase 
         _test_all_saved_pms_and_apple_pay_and_link(darkMode: false, showDefaultPMBadge: true)
     }
 
+    func test_all_saved_pms_and_apple_pay_and_link_iconStyleFilled() {
+        var appearance = PaymentSheet.Appearance()
+        appearance.iconStyle = .filled
+        _test_all_saved_pms_and_apple_pay_and_link(darkMode: false, appearance: appearance)
+    }
+
+    func test_all_saved_pms_and_apple_pay_and_link_iconStyleOutlined() {
+        var appearance = PaymentSheet.Appearance()
+        appearance.iconStyle = .outlined
+        _test_all_saved_pms_and_apple_pay_and_link(darkMode: false, appearance: appearance)
+    }
+
     func _test_all_saved_pms_and_apple_pay_and_link(darkMode: Bool, appearance: PaymentSheet.Appearance = .default, showDefaultPMBadge: Bool = false) {
         let paymentMethods = [
             STPPaymentMethod._testCard(),

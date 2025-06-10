@@ -1044,6 +1044,40 @@ class EmbeddedPaymentMethodsViewSnapshotTests: STPSnapshotTestCase {
         verify(embeddedView)
     }
 
+    func testEmbeddedPaymentMethodsView_iconStyleFilled() {
+        var appearance: PaymentSheet.Appearance = .default
+        appearance.iconStyle = .filled
+
+        let embeddedView = EmbeddedPaymentMethodsView(initialSelection: nil,
+                                                      paymentMethodTypes: [.stripe(.card), .stripe(.cashApp), .stripe(.USBankAccount)],
+                                                      savedPaymentMethod: nil,
+                                                      appearance: appearance,
+                                                      shouldShowApplePay: true,
+                                                      shouldShowLink: true,
+                                                      savedPaymentMethodAccessoryType: .none,
+                                                      mandateProvider: MockMandateProvider(),
+                                                      savedPaymentMethods: [._testCard(), ._testUSBankAccount()])
+
+        verify(embeddedView)
+    }
+
+    func testEmbeddedPaymentMethodsView_iconStyleOutlined() {
+        var appearance: PaymentSheet.Appearance = .default
+        appearance.iconStyle = .outlined
+
+        let embeddedView = EmbeddedPaymentMethodsView(initialSelection: nil,
+                                                      paymentMethodTypes: [.stripe(.card), .stripe(.cashApp), .stripe(.USBankAccount)],
+                                                      savedPaymentMethod: nil,
+                                                      appearance: appearance,
+                                                      shouldShowApplePay: true,
+                                                      shouldShowLink: true,
+                                                      savedPaymentMethodAccessoryType: .none,
+                                                      mandateProvider: MockMandateProvider(),
+                                                      savedPaymentMethods: [._testCard(), ._testUSBankAccount()])
+
+        verify(embeddedView)
+    }
+
     func verify(
         _ view: UIView,
         identifier: String? = nil,
