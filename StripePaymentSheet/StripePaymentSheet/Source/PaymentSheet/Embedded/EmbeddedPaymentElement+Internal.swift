@@ -93,15 +93,17 @@ extension EmbeddedPaymentElement {
         }
     }
 
-    /// Commits the current selection: kicks off a checkout billing sync if needed and notifies the merchant.
+    /// Commits the current payment option for paths with no sheet error surface: fire-and-forget
+    /// checkout billing sync (when needed), then notifies the merchant if the option changed.
     ///
-    /// A selection with no form (e.g. a saved payment method) is committed as soon as it's made, so its
-    /// billing address must be synced onto the checkout session (for tax recalculation).
+    /// Use for manage dismiss, single-PM update, row tap with no form, and first-load default.
+    /// The session mutation already drives Embedded loading / `CheckoutDelegate` via
+    /// `update(checkout:)`, and `confirm` refuses to run while the sync is pending. On failure,
+    /// billing stays stale until a later sync.
     ///
-    /// The sync is fire-and-forget: it mutates the session, which already drives the element's loading
-    /// state and the merchant's `CheckoutDelegate` via `update(checkout:)`, and `confirm` refuses to run
-    /// while the sync is still pending. On failure, billing stays stale until a later commit.
-    func commitSelectedPaymentOption() {
+    /// Form Continue instead uses blocking `Checkout.syncBillingIfNeeded` so it can keep the sheet
+    /// open and surface the error, then calls `informDelegateIfPaymentOptionUpdated()` on its own.
+    func commitPaymentOptionAndSyncBilling() {
         if let (checkout, billingDetails) = intent.checkoutRequiringBillingSync(for: _paymentOption) {
             Task { @MainActor in
                 try? await checkout.syncBillingAddress(from: billingDetails)
@@ -310,6 +312,9 @@ extension EmbeddedPaymentElement: UpdatePaymentMethodViewControllerDelegate {
         embeddedPaymentMethodsView.updateSavedPaymentMethodRow(savedPaymentMethods,
                                                                isSelected: isSelected,
                                                                accessoryType: accessoryType)
+        // Single-PM update dismisses directly (no manage list / Continue CTA). Same-PM billing edits
+        // don't change RowButtonType, so DidUpdateSelection won't sync — commit + fire-and-forget here.
+        commitPaymentOptionAndSyncBilling()
         presentingViewController?.dismiss(animated: true)
         return .success
     }
@@ -381,9 +386,11 @@ extension EmbeddedPaymentElement: VerticalSavedPaymentMethodsViewControllerDeleg
                                                                isSelected: isSelected,
                                                                accessoryType: accessoryType)
 
-        // Manage has no Continue CTA; the selection is committed on dismiss. This covers billing edits
-        // to the already-selected payment method, which don't trigger a selection change.
-        commitSelectedPaymentOption()
+        // Manage has no Continue CTA and no inline sync-error surface, so sync is fire-and-forget.
+        // This is required for billing edits to the already-selected PM (same RowButtonType → no
+        // DidUpdateSelection). Selection changes are covered here too; a later selection-commit hook
+        // may also sync, in which case this becomes a no-op once billing matches.
+        commitPaymentOptionAndSyncBilling()
         presentingViewController?.dismiss(animated: true)
     }
 }
@@ -477,8 +484,9 @@ extension EmbeddedPaymentElement: EmbeddedFormViewControllerDelegate {
         if let newSelectedType = embeddedPaymentMethodsView.selectedRowButton?.type {
             updateChangeButtonAndSublabelState(for: newSelectedType)
         }
+        // Billing already synced (blocking) in the form before this was called.
         embeddedFormViewController.dismiss(animated: true)
-        commitSelectedPaymentOption()
+        informDelegateIfPaymentOptionUpdated()
         if case .immediateAction(let didSelectPaymentOption) = configuration.rowSelectionBehavior {
             didSelectPaymentOption()
         }

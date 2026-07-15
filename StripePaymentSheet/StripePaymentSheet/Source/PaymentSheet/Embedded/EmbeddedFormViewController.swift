@@ -377,9 +377,37 @@ class EmbeddedFormViewController: UIViewController {
         // Send analytic when primary button is tapped
         analyticsHelper.logConfirmButtonTapped(paymentOption: selectedPaymentOption)
 
-        // If we defer confirmation, continue; the delegate commits the selection (incl. any checkout billing sync)
+        // Blocking sync: keep the sheet open and show an error on failure. (Paths without a sheet use
+        // EmbeddedPaymentElement.commitPaymentOptionAndSyncBilling instead.)
         if shouldDeferConfirmation {
-            delegate?.embeddedFormViewControllerDidContinue(self)
+            Checkout.syncBillingIfNeeded(
+                intent: intent,
+                paymentOption: selectedPaymentOption,
+                setLoading: { [weak self] inProgress in
+                    guard let self else { return }
+                    if inProgress {
+                        self.view.endEditing(true)
+                        self.error = nil
+                        self.isPaymentInFlight = true
+                        self.updateError()
+                        self.updatePrimaryButton()
+                        self.isUserInteractionEnabled = false
+                    } else {
+                        self.isPaymentInFlight = false
+                        self.isUserInteractionEnabled = true
+                        self.updateError()
+                        self.updatePrimaryButton()
+                    }
+                },
+                onFailure: { [weak self] error in
+                    self?.error = error
+                    self?.updateError()
+                },
+                completion: { [weak self] in
+                    guard let self else { return }
+                    self.delegate?.embeddedFormViewControllerDidContinue(self)
+                }
+            )
             return
         }
 
