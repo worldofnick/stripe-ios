@@ -472,50 +472,30 @@ class PaymentSheetFlowControllerViewController: UIViewController, FlowController
 
         switch mode {
         case .selectingSaved:
-            syncCheckoutBillingThenClose()
+            closeSheet(didCancel: false)
         case .addingNew:
             if addPaymentMethodViewController.overridePrimaryButtonState != nil {
                 addPaymentMethodViewController.didTapCallToActionButton(from: self)
             } else {
                 addPaymentMethodViewController.logBillingAddressCompletionIfNeeded()
-                syncCheckoutBillingThenClose()
+                closeSheet(didCancel: false)
             }
         }
     }
 
-    /// Syncs billing address to the checkout session, then closes the sheet.
-    /// If the sync fails, stays on the sheet and shows the error instead.
-    private func syncCheckoutBillingThenClose() {
-        guard case .checkout(let checkout) = intent,
-              let paymentOption = selectedPaymentOption else {
-            flowControllerDelegate?.flowControllerViewControllerShouldClose(self, didCancel: false)
-            return
-        }
-
-        view.endEditing(true)
-        error = nil
-        confirmButton.update(status: .processing, animated: true)
-        setUserInteraction(enabled: false)
-
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            do {
-                try await checkout.syncBillingAddress(from: paymentOption.billingDetails)
-            } catch {
-                self.error = error
+    /// Syncs checkout billing if needed, then closes. On failure, stays open and shows the error.
+    private func closeSheet(didCancel: Bool, afterClose: (() -> Void)? = nil) {
+        Checkout.syncBillingIfNeeded(
+            intent: intent,
+            paymentOption: selectedPaymentOption,
+            setLoading: { [weak self] in self?.setBillingSyncLoading($0) },
+            onFailure: { [weak self] in self?.showBillingSyncError($0) },
+            completion: { [weak self] in
+                guard let self else { return }
+                self.flowControllerDelegate?.flowControllerViewControllerShouldClose(self, didCancel: didCancel)
+                afterClose?()
             }
-            self.setUserInteraction(enabled: true)
-            self.updateButton()
-
-            if let error = self.error {
-                self.errorLabel.text = error.nonGenericDescription
-                UIView.animate(withDuration: PaymentSheetUI.defaultAnimationDuration) {
-                    self.errorLabel.setHiddenIfNecessary(false)
-                }
-            } else {
-                self.flowControllerDelegate?.flowControllerViewControllerShouldClose(self, didCancel: false)
-            }
-        }
+        )
     }
 
     /// Enables or disables all interaction with the sheet, including drag/tap-to-dismiss.
@@ -526,13 +506,37 @@ class PaymentSheetFlowControllerViewController: UIViewController, FlowController
         navigationBar.isUserInteractionEnabled = enabled
     }
 
+    private func setBillingSyncLoading(_ inProgress: Bool) {
+        if inProgress {
+            view.endEditing(true)
+            error = nil
+            // Spinner only shows when the confirm button is visible (hidden for plain saved PMs).
+            confirmButton.update(status: .processing, animated: true)
+            setUserInteraction(enabled: false)
+        } else {
+            setUserInteraction(enabled: true)
+            updateButton()
+        }
+    }
+
+    private func showBillingSyncError(_ error: Error) {
+        self.error = error
+        errorLabel.text = error.nonGenericDescription
+        UIView.animate(withDuration: PaymentSheetUI.defaultAnimationDuration) {
+            self.errorLabel.setHiddenIfNecessary(false)
+        }
+    }
+
     func didDismiss(didCancel: Bool) {
-        // If the customer was adding a new payment method and it's incomplete/invalid, return to the saved PM screen
-        flowControllerDelegate?.flowControllerViewControllerShouldClose(self, didCancel: didCancel)
-        if savedPaymentOptionsViewController.isRemovingPaymentMethods {
-            savedPaymentOptionsViewController.isRemovingPaymentMethods = false
-            configureEditSavedPaymentMethodsButton()
-            updateUI()
+        // Selection is committed on dismiss too, so sync billing before closing.
+        closeSheet(didCancel: didCancel) { [weak self] in
+            guard let self else { return }
+            // If the customer was adding a new payment method and it's incomplete/invalid, return to the saved PM screen
+            if self.savedPaymentOptionsViewController.isRemovingPaymentMethods {
+                self.savedPaymentOptionsViewController.isRemovingPaymentMethods = false
+                self.configureEditSavedPaymentMethodsButton()
+                self.updateUI()
+            }
         }
     }
 }
@@ -607,7 +611,7 @@ extension PaymentSheetFlowControllerViewController: SavedPaymentOptionsViewContr
         case .applePay, .link, .saved:
             updateUI()
             if isDismissable, !(selectedPaymentMethodType?.requiresMandateDisplayForSavedSelection ?? false) {
-                flowControllerDelegate?.flowControllerViewControllerShouldClose(self, didCancel: false)
+                closeSheet(didCancel: false)
             }
         }
     }
@@ -718,8 +722,9 @@ extension PaymentSheetFlowControllerViewController: WalletHeaderViewDelegate {
         if canPresentLinkOnWalletButton {
             presentLink()
         } else {
-            didDismiss(didCancel: false)
+            // Set before dismiss so billing sync sees Link selected (no billing details to sync).
             isHackyLinkButtonSelected = true
+            didDismiss(didCancel: false)
         }
 
         updateUI()

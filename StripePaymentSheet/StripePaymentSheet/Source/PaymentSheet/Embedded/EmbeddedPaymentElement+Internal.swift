@@ -93,6 +93,23 @@ extension EmbeddedPaymentElement {
         }
     }
 
+    /// Commits the current selection: kicks off a checkout billing sync if needed and notifies the merchant.
+    ///
+    /// A selection with no form (e.g. a saved payment method) is committed as soon as it's made, so its
+    /// billing address must be synced onto the checkout session (for tax recalculation).
+    ///
+    /// The sync is fire-and-forget: it mutates the session, which already drives the element's loading
+    /// state and the merchant's `CheckoutDelegate` via `update(checkout:)`, and `confirm` refuses to run
+    /// while the sync is still pending. On failure, billing stays stale until a later commit.
+    func commitSelectedPaymentOption() {
+        if let (checkout, billingDetails) = intent.checkoutRequiringBillingSync(for: _paymentOption) {
+            Task { @MainActor in
+                try? await checkout.syncBillingAddress(from: billingDetails)
+            }
+        }
+        informDelegateIfPaymentOptionUpdated()
+    }
+
     // Helper method to create Form VC for a payment method row, if applicable.
     static func makeFormViewControllerIfNecessary(
         selection: RowButtonType?,
@@ -363,6 +380,10 @@ extension EmbeddedPaymentElement: VerticalSavedPaymentMethodsViewControllerDeleg
         embeddedPaymentMethodsView.updateSavedPaymentMethodRow(savedPaymentMethods,
                                                                isSelected: isSelected,
                                                                accessoryType: accessoryType)
+
+        // Manage has no Continue CTA; the selection is committed on dismiss. This covers billing edits
+        // to the already-selected payment method, which don't trigger a selection change.
+        commitSelectedPaymentOption()
         presentingViewController?.dismiss(animated: true)
     }
 }
@@ -457,7 +478,7 @@ extension EmbeddedPaymentElement: EmbeddedFormViewControllerDelegate {
             updateChangeButtonAndSublabelState(for: newSelectedType)
         }
         embeddedFormViewController.dismiss(animated: true)
-        informDelegateIfPaymentOptionUpdated()
+        commitSelectedPaymentOption()
         if case .immediateAction(let didSelectPaymentOption) = configuration.rowSelectionBehavior {
             didSelectPaymentOption()
         }

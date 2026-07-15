@@ -738,7 +738,7 @@ class PaymentSheetVerticalViewController: UIViewController, FlowControllerViewCo
 
         // If FlowController, sync billing then close the sheet
         if isFlowController {
-            syncCheckoutBillingThenClose()
+            closeSheet(didCancel: false)
             return
         }
 
@@ -773,37 +773,35 @@ class PaymentSheetVerticalViewController: UIViewController, FlowControllerViewCo
         }
     }
 
-    /// Syncs billing address to the checkout session, then closes the sheet.
-    /// If the sync fails, stays on the sheet and shows the error instead.
-    private func syncCheckoutBillingThenClose() {
-        guard case .checkout(let checkout) = intent,
-              let paymentOption = selectedPaymentOption else {
-            flowControllerDelegate?.flowControllerViewControllerShouldClose(self, didCancel: false)
-            return
-        }
-
-        view.endEditing(true)
-        error = nil
-        isPaymentInFlight = true
-        updateUI()
-        isUserInteractionEnabled = false
-
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            do {
-                try await checkout.syncBillingAddress(from: paymentOption.billingDetails)
-            } catch {
-                self.error = error
+    /// Syncs checkout billing if needed, then closes. On failure, stays open and shows the error.
+    private func closeSheet(didCancel: Bool) {
+        Checkout.syncBillingIfNeeded(
+            intent: intent,
+            paymentOption: selectedPaymentOption,
+            setLoading: { [weak self] inProgress in
+                guard let self else { return }
+                if inProgress {
+                    self.view.endEditing(true)
+                    self.error = nil
+                    self.isPaymentInFlight = true
+                    self.updateUI()
+                    self.isUserInteractionEnabled = false
+                } else {
+                    self.isPaymentInFlight = false
+                    self.isUserInteractionEnabled = true
+                    self.updateError()
+                    self.updatePrimaryButton()
+                }
+            },
+            onFailure: { [weak self] error in
+                self?.error = error
+                self?.updateError()
+            },
+            completion: { [weak self] in
+                guard let self else { return }
+                self.flowControllerDelegate?.flowControllerViewControllerShouldClose(self, didCancel: didCancel)
             }
-            self.isPaymentInFlight = false
-            self.isUserInteractionEnabled = true
-            self.updateError()
-            self.updatePrimaryButton()
-
-            if self.error == nil {
-                self.flowControllerDelegate?.flowControllerViewControllerShouldClose(self, didCancel: false)
-            }
-        }
+        )
     }
 
     @objc func presentManageScreen() {
@@ -1043,7 +1041,8 @@ extension PaymentSheetVerticalViewController: VerticalPaymentMethodListViewContr
 
     func didCancel() {
         if isFlowController {
-            flowControllerDelegate?.flowControllerViewControllerShouldClose(self, didCancel: true)
+            // Even on cancel, the current selection is committed - sync billing to the checkout session first if needed
+            closeSheet(didCancel: true)
         } else {
             paymentSheetDelegate?.paymentSheetViewControllerDidCancel(self)
         }
