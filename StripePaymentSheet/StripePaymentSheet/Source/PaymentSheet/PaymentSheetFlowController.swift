@@ -647,6 +647,18 @@ extension PaymentSheet {
             }
         }
 
+        /// The user deliberately dropped out of the native Link flow while Link was selected:
+        /// deselect Link everywhere it's recorded — the sheet, the locally persisted default (so it
+        /// doesn't reappear on the next initialization), and the presentation snapshot (so a
+        /// subsequent cancel doesn't resurrect it).
+        private func clearLinkSelectionAfterLinkFlowDropOut() {
+            viewController.clearSelection()
+            if CustomerPaymentOption.localDefaultPaymentMethod(for: configuration.customer?.id) == .link {
+                CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: configuration.customer?.id)
+            }
+            selectionSnapshotAtPresentation = selectionSnapshotAtPresentation?.clearingLinkSelection
+        }
+
         private func presentNativeLinkInPlaceOfFlowController(
             from presentingViewController: UIViewController,
             selectedPaymentDetailsID: String? = nil,
@@ -663,16 +675,9 @@ extension PaymentSheet {
                 if shouldReturnToPaymentSheet {
                     self.viewController.linkConfirmOption = nil
                     if case .link(let option) = self.internalPaymentOption, case .wallet = option {
-                        // The Link row was selected before we launched the Link flow, but the user decided to drop out
-                        // of the Link flow. We clear the selection to avoid having Link stay selected.
-                        self.viewController.clearSelection()
-                        // Clear Link from the persisted default too, so it doesn't reappear on the next
-                        // initialization after being deliberately deselected
-                        if CustomerPaymentOption.localDefaultPaymentMethod(for: self.configuration.customer?.id) == .link {
-                            CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: self.configuration.customer?.id)
-                        }
-                        // Don't resurrect the cleared Link selection if the user then cancels the sheet
-                        self.selectionSnapshotAtPresentation = self.selectionSnapshotAtPresentation?.clearingLinkSelection
+                        // The Link row was selected before we launched the Link flow, but the user
+                        // decided to drop out of the Link flow: deselect Link
+                        self.clearLinkSelectionAfterLinkFlowDropOut()
                     }
                     self.updatePaymentOption()
                     returnToPaymentSheet()

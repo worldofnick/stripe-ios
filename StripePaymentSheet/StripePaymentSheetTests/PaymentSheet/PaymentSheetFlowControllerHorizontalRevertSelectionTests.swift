@@ -415,6 +415,56 @@ final class PaymentSheetFlowControllerHorizontalRevertSelectionTests: XCTestCase
         XCTAssertEqual(restored.stripeId, paymentMethod.stripeId)
     }
 
+    func testRecreatedViewController_opensFormBackedSelectionInRestoredForm() throws {
+        // Pins a deliberate behavior change: when the view controller is re-created with a
+        // form-backed previous selection (as FlowController.update() does), it opens in the restored
+        // form (.addingNew) rather than the saved list — the list has no tile for these selections
+        // and previously dropped them silently.
+        let customerID = "cus_fch_update_form_backed"
+        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
+        let config = makeConfiguration(customerID: customerID)
+        let loadResult = makeLoadResult(
+            elementsSession: ._testValue(paymentMethodTypes: ["card"], isLinkPassthroughModeEnabled: true),
+            savedPaymentMethods: [STPPaymentMethod._testCard()] // Saved PMs exist, so the old code chose .selectingSaved
+        )
+        let confirmParams = IntentConfirmParams(type: .stripe(.card))
+        confirmParams.paymentMethodParams.card = STPPaymentMethodCardParams()
+        confirmParams.paymentMethodParams.card?.number = "4242424242424242"
+        confirmParams.paymentMethodParams.card?.expMonth = 12
+        confirmParams.paymentMethodParams.card?.expYear = 40
+        confirmParams.paymentMethodParams.card?.cvc = "123"
+        confirmParams.setDefaultBillingDetailsIfNecessary(for: config)
+        let signupOption = PaymentSheet.LinkConfirmOption.signUp(
+            brand: .link,
+            account: PaymentSheetLinkAccount(
+                email: "user@example.com",
+                session: LinkStubs.consumerSession(),
+                publishableKey: nil,
+                displayablePaymentDetails: nil,
+                apiClient: STPAPIClient(publishableKey: STPTestingDefaultPublishableKey),
+                useMobileEndpoints: false,
+                canSyncAttestationState: false
+            ),
+            phoneNumber: nil,
+            consentAction: .checkbox_v0,
+            legalName: nil,
+            intentConfirmParams: confirmParams
+        )
+
+        // When the VC is re-created with the committed inline Link signup as the previous option
+        let vc = PaymentSheetFlowControllerViewController(
+            configuration: config,
+            loadResult: loadResult,
+            analyticsHelper: ._testValue(),
+            previousPaymentOption: .link(option: signupOption)
+        )
+        vc.loadViewIfNeeded()
+
+        // Then it opens on the restored form, not the saved list
+        XCTAssertEqual(vc.mode, .addingNew)
+        XCTAssertEqual(cardFormNumberText(in: vc), "4242424242424242")
+    }
+
     func testRevertSelectionToInlineLinkSignup_restoresCardForm() throws {
         // Given a snapshotted inline Link signup selection: a completed card form with the Link
         // signup checkbox — form-backed, not the Link wallet tile
