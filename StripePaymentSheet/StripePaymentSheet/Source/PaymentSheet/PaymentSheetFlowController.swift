@@ -53,9 +53,9 @@ extension PaymentSheet {
                 // options return nil.
                 return confirmOption.signupConfirmParams
             case .saved(_, let confirmParams):
-                // Instant Debits / Link Card Brand selections are form-backed: the payment method
-                // was created during bank auth, so restoring the selection means restoring the form
-                return confirmParams?.instantDebitsLinkedBank != nil ? confirmParams : nil
+                // Form-backed saved selections (Instant Debits / Link Card Brand) are restored by
+                // restoring their form
+                return confirmParams?.isFormBackedSavedPaymentMethod == true ? confirmParams : nil
             case .new(confirmParams: let params):
                 return params
             case let .external(paymentMethod, billingDetails):
@@ -63,6 +63,17 @@ extension PaymentSheet {
                 params.paymentMethodParams.billingDetails = billingDetails
                 return params
             }
+        }
+
+        /// The confirm params to restore into a payment method form when redisplaying this option,
+        /// e.g. re-presenting after `update()` or reverting the selection on cancel. Like
+        /// `newConfirmParams`, but also returns the params of customer-saved selections (restoring
+        /// e.g. recollected CVC input).
+        var formRestorationConfirmParams: IntentConfirmParams? {
+            if case .saved(_, let confirmParams) = self {
+                return confirmParams
+            }
+            return newConfirmParams
         }
 
         var savedPaymentMethod: STPPaymentMethod? {
@@ -1047,8 +1058,8 @@ extension PaymentSheet.FlowController: FlowControllerViewControllerDelegate {
                 customerID: configuration.customer?.id,
                 savedPaymentMethods: flowControllerViewController.savedPaymentMethods
             )
-            if snapshot.isPaymentOptionValid(savedPaymentMethods: flowControllerViewController.savedPaymentMethods) {
-                flowControllerViewController.revertSelection(to: snapshot.paymentOptionForRestoration(savedPaymentMethods: flowControllerViewController.savedPaymentMethods))
+            if case .revert(let paymentOptionToRestore) = snapshot.paymentOptionRestoration(savedPaymentMethods: flowControllerViewController.savedPaymentMethods) {
+                flowControllerViewController.revertSelection(to: paymentOptionToRestore)
             }
         }
         selectionSnapshotAtPresentation = nil

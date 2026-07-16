@@ -61,11 +61,15 @@ final class PaymentSheetSelectionSnapshotTest: XCTestCase {
                 savedPaymentMethods: []
             )
 
-            // Then it's valid regardless of the customer's saved payment methods
-            XCTAssertTrue(
-                snapshot.isPaymentOptionValid(savedPaymentMethods: []),
-                "A form-backed \(type) selection should remain valid; it isn't a customer-saved payment method"
-            )
+            // Then it's restorable regardless of the customer's saved payment methods
+            guard case .revert(let restored) = snapshot.paymentOptionRestoration(savedPaymentMethods: []) else {
+                return XCTFail("A form-backed \(type) selection should be restorable; it isn't a customer-saved payment method")
+            }
+            if case .saved(let restoredPaymentMethod, _)? = restored {
+                XCTAssertEqual(restoredPaymentMethod.stripeId, paymentMethod.stripeId)
+            } else {
+                XCTFail("Expected the form-backed .saved selection to be restored unchanged")
+            }
         }
     }
 

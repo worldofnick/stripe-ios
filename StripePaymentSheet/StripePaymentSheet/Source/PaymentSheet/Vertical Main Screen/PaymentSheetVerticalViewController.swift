@@ -230,26 +230,7 @@ class PaymentSheetVerticalViewController: UIViewController, FlowControllerViewCo
             let paymentMethodListViewController = makePaymentMethodListViewController(selection: updatedListSelection)
             self.paymentMethodListViewController = paymentMethodListViewController
 
-            let confirmParams: IntentConfirmParams? = {
-                guard let paymentOption = previousPaymentOption else {
-                    return nil
-                }
-                switch paymentOption {
-                case .saved(_, let confirmParams):
-                    if let confirmParams {
-                        return confirmParams
-                    } else {
-                        return nil
-                    }
-                case .new, .external:
-                    // For .external, this restores the collected billing details into the form
-                    return paymentOption.newConfirmParams
-                case .link(let confirmOption):
-                    return confirmOption.signupConfirmParams
-                case .applePay:
-                    return nil
-                }
-            }()
+            let confirmParams = previousPaymentOption?.formRestorationConfirmParams
 
             if let confirmParams,
                 paymentMethodTypes.contains(confirmParams.paymentMethodType),
@@ -981,19 +962,7 @@ extension PaymentSheetVerticalViewController: VerticalPaymentMethodListViewContr
     }
 
     private func makeFormVC(paymentMethodType: PaymentSheet.PaymentMethodType) -> PaymentMethodFormViewController {
-        let previousCustomerInput: IntentConfirmParams? = {
-            switch previousPaymentOption {
-            case .new, .external:
-                // For .external, this restores the collected billing details into the form
-                return previousPaymentOption?.newConfirmParams
-            case .saved(_, let confirmParams):
-                return confirmParams
-            case .link(let confirmOption):
-                return confirmOption.signupConfirmParams
-            case .applePay, nil:
-                return nil
-            }
-        }()
+        let previousCustomerInput = previousPaymentOption?.formRestorationConfirmParams
         let previousLinkInlineSignupAction: LinkInlineSignupViewModel.Action? = {
             if case let .link(confirmOption) = previousPaymentOption {
                 return confirmOption.signupAction

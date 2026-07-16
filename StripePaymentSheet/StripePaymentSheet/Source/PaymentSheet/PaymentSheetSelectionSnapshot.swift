@@ -40,34 +40,31 @@ struct SelectionSnapshot {
         )
     }
 
-    /// Whether the snapshotted payment option can still be reverted to. False only if it referenced a
-    /// saved payment method that no longer exists (e.g. the user deleted it while the sheet was
-    /// presented) — in which case the sheet's own post-deletion selection should be kept instead.
-    /// Other cases identify a payment method type, not a saved instance, and the available types can't
-    /// change while the sheet is presented.
-    func isPaymentOptionValid(savedPaymentMethods: [STPPaymentMethod]) -> Bool {
-        guard case .saved(let paymentMethod, let confirmParams) = paymentOption else {
-            return true
-        }
-        if confirmParams?.instantDebitsLinkedBank != nil {
-            // Not a customer-saved payment method: Instant Debits / Link Card Brand forms create
-            // their payment method during bank auth and return it as `.saved`, so it never appears
-            // in `savedPaymentMethods` and deletions can't invalidate it.
-            return true
-        }
-        return savedPaymentMethods.contains(where: { $0.stripeId == paymentMethod.stripeId })
+    /// The in-memory restoration a cancel should perform.
+    enum PaymentOptionRestoration {
+        /// Revert to the given payment option (nil clears the selection).
+        case revert(to: PaymentOption?)
+        /// The snapshotted saved payment method was deleted while the sheet was presented; keep the
+        /// sheet's own post-deletion selection instead of reverting to a dead reference.
+        case keepCurrentSelection
     }
 
-    /// The snapshotted payment option to restore, re-resolving a saved payment method against the
-    /// given up-to-date list: it may have been edited while the sheet was presented (e.g. a
-    /// co-branded card's preferred network changed), and restoration must reference the current
-    /// object or it won't match any displayed row.
-    func paymentOptionForRestoration(savedPaymentMethods: [STPPaymentMethod]) -> PaymentOption? {
+    /// Resolves the snapshotted payment option against the up-to-date saved payment methods:
+    /// a customer-saved selection is re-resolved to the current object (it may have been edited
+    /// while the sheet was presented, e.g. a co-branded card's preferred network changed), or
+    /// dropped entirely if it was deleted. Non-saved options identify a payment method type, not a
+    /// saved instance, and the available types can't change while the sheet is presented.
+    func paymentOptionRestoration(savedPaymentMethods: [STPPaymentMethod]) -> PaymentOptionRestoration {
         guard case .saved(let paymentMethod, let confirmParams) = paymentOption,
-              let currentPaymentMethod = savedPaymentMethods.first(where: { $0.stripeId == paymentMethod.stripeId }) else {
-            return paymentOption
+              confirmParams?.isFormBackedSavedPaymentMethod != true else {
+            // Form-backed saved selections (Instant Debits / Link Card Brand) aren't customer-saved:
+            // they never appear in `savedPaymentMethods`, so deletions can't invalidate them.
+            return .revert(to: paymentOption)
         }
-        return .saved(paymentMethod: currentPaymentMethod, confirmParams: confirmParams)
+        guard let currentPaymentMethod = savedPaymentMethods.first(where: { $0.stripeId == paymentMethod.stripeId }) else {
+            return .keepCurrentSelection
+        }
+        return .revert(to: .saved(paymentMethod: currentPaymentMethod, confirmParams: confirmParams))
     }
 
     /// Restores the locally persisted default to its at-presentation value, unless it referenced a saved

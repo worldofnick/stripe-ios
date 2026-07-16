@@ -461,16 +461,18 @@ class PaymentSheetFlowControllerViewController: UIViewController, FlowController
 
     func revertSelection(to paymentOption: PaymentOption?) {
         isHackyLinkButtonSelected = false
-        switch paymentOption {
-        case .applePay, .link, .saved:
-            if let confirmParams = paymentOption?.newConfirmParams {
-                // A form-backed `.saved` selection (Instant Debits / Link Card Brand): the payment
-                // method was created by the bank-auth form, so restore the form, not a carousel tile
-                linkConfirmOption = nil
+        if let confirmParams = paymentOption?.newConfirmParams {
+            // A form-backed selection (.new, .external, an Instant Debits / Link Card Brand `.saved`,
+            // or an inline Link signup): restore the form (including its payment method type) to the
+            // snapshotted input, discarding any edits made while the sheet was presented
+            linkConfirmOption = nil
+            if addPaymentMethodViewController.resetForm(to: confirmParams) {
                 mode = .addingNew
-                addPaymentMethodViewController.resetForm(to: confirmParams)
-                break
             }
+        } else if let paymentOption {
+            // Apple Pay, the Link wallet, or a customer-saved payment method: restore its tile.
+            // Restore directly from the snapshot rather than re-deriving from defaults, which could
+            // e.g. select the server-side default instead of the snapshotted selection
             linkConfirmOption = {
                 if case .link(let option) = paymentOption {
                     return option
@@ -478,18 +480,8 @@ class PaymentSheetFlowControllerViewController: UIViewController, FlowController
                 return nil
             }()
             mode = .selectingSaved
-            // Restore directly from the snapshot rather than re-deriving from defaults, which could
-            // e.g. select the server-side default instead of the snapshotted selection
-            savedPaymentOptionsViewController.select(paymentOption: paymentOption!)
-        case .new, .external:
-            linkConfirmOption = nil
-            mode = .addingNew
-            // Restore the form (including its payment method type) to the snapshotted input,
-            // discarding any edits made while the sheet was presented
-            if let confirmParams = paymentOption?.newConfirmParams {
-                addPaymentMethodViewController.resetForm(to: confirmParams)
-            }
-        case nil:
+            savedPaymentOptionsViewController.select(paymentOption: paymentOption)
+        } else {
             linkConfirmOption = nil
             // Discard any in-progress form input; a completed form would otherwise still be
             // returned as the selection

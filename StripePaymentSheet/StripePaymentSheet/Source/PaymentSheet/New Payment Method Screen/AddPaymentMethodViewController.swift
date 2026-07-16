@@ -71,12 +71,12 @@ class AddPaymentMethodViewController: UIViewController {
 
     // MARK: - Views
     private(set) lazy var paymentMethodFormViewController: PaymentMethodFormViewController = {
-        let pmFormVC = PaymentMethodFormViewController(type: selectedPaymentMethodType, intent: intent, elementsSession: elementsSession, previousCustomerInput: previousCustomerInput, formCache: formCache, configuration: configuration, paymentMethodOrientation: paymentMethodOrientation, headerView: nil, analyticsHelper: analyticsHelper, paymentMethodMessagingPromotionsHelper: paymentMethodMessagingPromotionsHelper, isLinkUI: isLinkUI, delegate: self, linkAppearance: linkAppearance)
+        let pmFormVC = makeFormViewController(type: selectedPaymentMethodType, previousCustomerInput: previousCustomerInput)
         // Only use the previous customer input in the very first load, to avoid overwriting customer input
         previousCustomerInput = nil
         return pmFormVC
     }()
-    lazy var paymentMethodTypesView: PaymentMethodTypeCollectionView = {
+    private(set) lazy var paymentMethodTypesView: PaymentMethodTypeCollectionView = {
         let view = PaymentMethodTypeCollectionView(
             paymentMethodTypes: paymentMethodTypes,
             initialPaymentMethodType: previousCustomerInput?.paymentMethodType,
@@ -193,21 +193,7 @@ class AddPaymentMethodViewController: UIViewController {
 
     private func updateFormElement() {
         if selectedPaymentMethodType != paymentMethodFormViewController.paymentMethodType {
-            paymentMethodFormViewController = PaymentMethodFormViewController(
-                type: selectedPaymentMethodType,
-                intent: intent,
-                elementsSession: elementsSession,
-                previousCustomerInput: previousCustomerInput,
-                formCache: formCache,
-                configuration: configuration,
-                paymentMethodOrientation: paymentMethodOrientation,
-                headerView: nil,
-                analyticsHelper: analyticsHelper,
-                paymentMethodMessagingPromotionsHelper: paymentMethodMessagingPromotionsHelper,
-                isLinkUI: isLinkUI,
-                delegate: self,
-                linkAppearance: linkAppearance
-            )
+            paymentMethodFormViewController = makeFormViewController(type: selectedPaymentMethodType, previousCustomerInput: previousCustomerInput)
         }
         updateUI()
     }
@@ -216,16 +202,19 @@ class AddPaymentMethodViewController: UIViewController {
 
     /// Discards any in-progress edits and rebuilds the form from the given customer input, switching
     /// the displayed payment method type if necessary, e.g. to restore a previously completed form
-    /// after the user cancels the sheet.
-    func resetForm(to customerInput: IntentConfirmParams) {
+    /// after the user cancels the sheet. Returns false if the input's payment method type isn't
+    /// available, in which case nothing changes.
+    @discardableResult
+    func resetForm(to customerInput: IntentConfirmParams) -> Bool {
         guard paymentMethodTypes.contains(customerInput.paymentMethodType) else {
-            return
+            return false
         }
         formCache[customerInput.paymentMethodType] = nil
         previousCustomerInput = customerInput
         paymentMethodTypesView.select(customerInput.paymentMethodType)
         replaceFormViewController(type: customerInput.paymentMethodType, previousCustomerInput: customerInput)
         previousCustomerInput = nil
+        return true
     }
 
     /// Discards any in-progress form input, rebuilding an empty form for the current type, e.g. when
@@ -237,7 +226,14 @@ class AddPaymentMethodViewController: UIViewController {
     }
 
     private func replaceFormViewController(type: PaymentSheet.PaymentMethodType, previousCustomerInput: IntentConfirmParams?) {
-        paymentMethodFormViewController = PaymentMethodFormViewController(
+        paymentMethodFormViewController = makeFormViewController(type: type, previousCustomerInput: previousCustomerInput)
+        if isViewLoaded {
+            updateUI()
+        }
+    }
+
+    private func makeFormViewController(type: PaymentSheet.PaymentMethodType, previousCustomerInput: IntentConfirmParams?) -> PaymentMethodFormViewController {
+        return PaymentMethodFormViewController(
             type: type,
             intent: intent,
             elementsSession: elementsSession,
@@ -252,9 +248,6 @@ class AddPaymentMethodViewController: UIViewController {
             delegate: self,
             linkAppearance: linkAppearance
         )
-        if isViewLoaded {
-            updateUI()
-        }
     }
 
     func didTapCallToActionButton(from viewController: UIViewController) {
