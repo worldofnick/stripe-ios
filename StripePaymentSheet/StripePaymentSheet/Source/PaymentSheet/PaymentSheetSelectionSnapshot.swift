@@ -23,11 +23,14 @@ struct SelectionSnapshot {
         )
     }
 
-    /// Returns a copy of this snapshot with the in-memory payment option cleared, preserving the
-    /// persisted value. Used when the snapshotted selection is intentionally cleared while the sheet
-    /// is presented (e.g. the user drops out of the Link flow).
-    var clearingPaymentOption: SelectionSnapshot {
-        return SelectionSnapshot(paymentOption: nil, localCustomerPaymentOption: localCustomerPaymentOption)
+    /// Returns a copy of this snapshot with the Link selection cleared. Used when the user drops out
+    /// of the native Link flow, which deliberately deselects Link — cancelling afterwards must not
+    /// resurrect Link, in memory or in the persisted default.
+    var clearingLinkSelection: SelectionSnapshot {
+        return SelectionSnapshot(
+            paymentOption: nil,
+            localCustomerPaymentOption: localCustomerPaymentOption == .link ? nil : localCustomerPaymentOption
+        )
     }
 
     /// Whether the snapshotted payment option can still be reverted to. False only if it referenced a

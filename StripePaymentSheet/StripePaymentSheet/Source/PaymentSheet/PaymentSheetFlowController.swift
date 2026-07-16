@@ -618,6 +618,9 @@ extension PaymentSheet {
                         }
                     } else {
                         self.viewController.flowControllerDelegate = self
+                        // Snapshot the selection now that the payment options are replacing the loading
+                        // spinner, so cancelling the sheet reverts to what the customer sees here
+                        self.selectionSnapshotAtPresentation = .capture(paymentOption: self.internalPaymentOption, customerID: self.configuration.customer?.id)
                         bottomSheetVC.setViewControllers([self.viewController])
                     }
                 }
@@ -643,8 +646,13 @@ extension PaymentSheet {
                         // The Link row was selected before we launched the Link flow, but the user decided to drop out
                         // of the Link flow. We clear the selection to avoid having Link stay selected.
                         self.viewController.clearSelection()
+                        // Clear Link from the persisted default too, so it doesn't reappear on the next
+                        // initialization after being deliberately deselected
+                        if CustomerPaymentOption.localDefaultPaymentMethod(for: self.configuration.customer?.id) == .link {
+                            CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: self.configuration.customer?.id)
+                        }
                         // Don't resurrect the cleared Link selection if the user then cancels the sheet
-                        self.selectionSnapshotAtPresentation = self.selectionSnapshotAtPresentation?.clearingPaymentOption
+                        self.selectionSnapshotAtPresentation = self.selectionSnapshotAtPresentation?.clearingLinkSelection
                     }
                     self.updatePaymentOption()
                     returnToPaymentSheet()
