@@ -394,6 +394,49 @@ final class PaymentSheetFlowControllerHorizontalRevertSelectionTests: XCTestCase
         XCTAssertEqual(restored.stripeId, paymentMethod.stripeId)
     }
 
+    func testRevertSelectionToInlineLinkSignup_restoresCardForm() throws {
+        // Given a snapshotted inline Link signup selection: a completed card form with the Link
+        // signup checkbox — form-backed, not the Link wallet tile
+        let customerID = "cus_fch_link_signup"
+        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
+        let config = makeConfiguration(customerID: customerID)
+        let loadResult = makeLoadResult(
+            elementsSession: ._testValue(paymentMethodTypes: ["card"], isLinkPassthroughModeEnabled: true)
+        )
+        let (_, vc) = makeFlowController(configuration: config, loadResult: loadResult)
+        let confirmParams = IntentConfirmParams(type: .stripe(.card))
+        confirmParams.paymentMethodParams.card = STPPaymentMethodCardParams()
+        confirmParams.paymentMethodParams.card?.number = "4242424242424242"
+        confirmParams.paymentMethodParams.card?.expMonth = 12
+        confirmParams.paymentMethodParams.card?.expYear = 40
+        confirmParams.paymentMethodParams.card?.cvc = "123"
+        confirmParams.setDefaultBillingDetailsIfNecessary(for: config)
+        let signupOption = PaymentSheet.LinkConfirmOption.signUp(
+            brand: .link,
+            account: PaymentSheetLinkAccount(
+                email: "user@example.com",
+                session: LinkStubs.consumerSession(),
+                publishableKey: nil,
+                displayablePaymentDetails: nil,
+                apiClient: STPAPIClient(publishableKey: STPTestingDefaultPublishableKey),
+                useMobileEndpoints: false,
+                canSyncAttestationState: false
+            ),
+            phoneNumber: nil,
+            consentAction: .checkbox_v0,
+            legalName: nil,
+            intentConfirmParams: confirmParams
+        )
+
+        // When reverting to it (e.g. the user cancels after abandoning a different selection)
+        vc.revertSelection(to: .link(option: signupOption))
+
+        // Then the signup's card form is restored — not the Link wallet tile
+        XCTAssertEqual(vc.mode, .addingNew)
+        XCTAssertEqual(vc.addPaymentMethodViewController.paymentMethodFormViewController.paymentMethodType, .stripe(.card))
+        XCTAssertEqual(cardFormNumberText(in: vc), "4242424242424242")
+    }
+
     func testCancelRevertsLinkTileSelection() throws {
         // Given Link was committed (tapping its tile commits and closes)
         let customerID = "cus_fch_link"

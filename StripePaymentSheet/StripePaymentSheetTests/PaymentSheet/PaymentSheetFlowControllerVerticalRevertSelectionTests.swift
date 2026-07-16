@@ -312,6 +312,52 @@ final class PaymentSheetFlowControllerVerticalRevertSelectionTests: XCTestCase {
         XCTAssertEqual(restored.stripeId, paymentMethod.stripeId)
     }
 
+    func testRevertSelectionToInlineLinkSignup_discardsEditedFormCache() throws {
+        // Given a committed inline Link signup (card A + signup) and a form cache holding edits (card B)
+        let customerID = "cus_fcv_link_signup"
+        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
+        let config = makeConfiguration(customerID: customerID)
+        let loadResult = makeLoadResult(
+            intentPaymentMethodTypes: [.card],
+            elementsSession: ._testValue(paymentMethodTypes: ["card"], isLinkPassthroughModeEnabled: true),
+            paymentMethodTypes: [.stripe(.card)]
+        )
+        let (flowController, vc) = makeFlowController(configuration: config, loadResult: loadResult)
+        _ = flowController // keep alive
+        let confirmParams = IntentConfirmParams(type: .stripe(.card))
+        confirmParams.paymentMethodParams.card = STPPaymentMethodCardParams()
+        confirmParams.paymentMethodParams.card?.number = "4242424242424242"
+        confirmParams.paymentMethodParams.card?.expMonth = 12
+        confirmParams.paymentMethodParams.card?.expYear = 40
+        confirmParams.paymentMethodParams.card?.cvc = "123"
+        confirmParams.setDefaultBillingDetailsIfNecessary(for: config)
+        let signupOption = PaymentSheet.LinkConfirmOption.signUp(
+            brand: .link,
+            account: PaymentSheetLinkAccount(
+                email: "user@example.com",
+                session: LinkStubs.consumerSession(),
+                publishableKey: nil,
+                displayablePaymentDetails: nil,
+                apiClient: STPAPIClient(publishableKey: STPTestingDefaultPublishableKey),
+                useMobileEndpoints: false,
+                canSyncAttestationState: false
+            ),
+            phoneNumber: nil,
+            consentAction: .checkbox_v0,
+            legalName: nil,
+            intentConfirmParams: confirmParams
+        )
+        // The user edited the (form-only) card form to card B before cancelling
+        try fillCardForm(in: vc, number: "5555555555554444")
+
+        // When reverting to the committed signup selection
+        vc.revertSelection(to: .link(option: signupOption))
+
+        // Then the edits are discarded and the form is rebuilt from the committed input
+        let restoredForm = try XCTUnwrap(vc.formCache[.stripe(.card)])
+        XCTAssertEqual(restoredForm.getTextFieldElement("Card number")?.text, "4242424242424242")
+    }
+
     func testCancelRevertsToNone() throws {
         // Given nothing is selected at presentation
         let customerID = "cus_fcv_none"
