@@ -243,7 +243,7 @@ class SavedPaymentOptionsViewController: UIViewController {
 
     // MARK: - Private Properties
     private var selectedViewModelIndex: Int?
-    private var viewModels: [Selection] = []
+    private(set) var viewModels: [Selection] = []
     private let cbcEligible: Bool
     private var linkAccountObserver: LinkAccountContextObserver?
 

@@ -70,13 +70,13 @@ class AddPaymentMethodViewController: UIViewController {
     }
 
     // MARK: - Views
-    private lazy var paymentMethodFormViewController: PaymentMethodFormViewController = {
+    private(set) lazy var paymentMethodFormViewController: PaymentMethodFormViewController = {
         let pmFormVC = PaymentMethodFormViewController(type: selectedPaymentMethodType, intent: intent, elementsSession: elementsSession, previousCustomerInput: previousCustomerInput, formCache: formCache, configuration: configuration, paymentMethodOrientation: paymentMethodOrientation, headerView: nil, analyticsHelper: analyticsHelper, paymentMethodMessagingPromotionsHelper: paymentMethodMessagingPromotionsHelper, isLinkUI: isLinkUI, delegate: self, linkAppearance: linkAppearance)
         // Only use the previous customer input in the very first load, to avoid overwriting customer input
         previousCustomerInput = nil
         return pmFormVC
     }()
-    private lazy var paymentMethodTypesView: PaymentMethodTypeCollectionView = {
+    lazy var paymentMethodTypesView: PaymentMethodTypeCollectionView = {
         let view = PaymentMethodTypeCollectionView(
             paymentMethodTypes: paymentMethodTypes,
             initialPaymentMethodType: previousCustomerInput?.paymentMethodType,

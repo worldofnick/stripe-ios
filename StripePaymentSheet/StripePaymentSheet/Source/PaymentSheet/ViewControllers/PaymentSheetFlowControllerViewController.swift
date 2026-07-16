@@ -88,7 +88,7 @@ class PaymentSheetFlowControllerViewController: UIViewController, FlowController
         case selectingSaved
         case addingNew
     }
-    private var mode: Mode
+    private(set) var mode: Mode
     private let isApplePayEnabled: Bool
     private let isLinkEnabled: Bool
     private let couldShowLinkInHeader: Bool
@@ -100,8 +100,8 @@ class PaymentSheetFlowControllerViewController: UIViewController, FlowController
     }()
 
     // MARK: - Views
-    private let addPaymentMethodViewController: AddPaymentMethodViewController
-    private let savedPaymentOptionsViewController: SavedPaymentOptionsViewController
+    let addPaymentMethodViewController: AddPaymentMethodViewController
+    let savedPaymentOptionsViewController: SavedPaymentOptionsViewController
     private lazy var headerLabel: UILabel = {
         return PaymentSheetUI.makeHeaderLabel(appearance: configuration.appearance)
     }()
