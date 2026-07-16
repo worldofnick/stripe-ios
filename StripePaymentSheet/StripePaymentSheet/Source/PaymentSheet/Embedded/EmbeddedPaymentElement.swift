@@ -230,6 +230,7 @@ public final class EmbeddedPaymentElement {
             self.confirmationChallenge = confirmationChallenge
             self.savedPaymentMethods = loadResult.savedPaymentMethods
             self.formCache = .init() // Clear the cache because the form may have changed e.g. different mandate or different fields.
+            self.lastConfirmedFormPaymentOption = nil // The confirmed form state may no longer be valid for the updated form
             let isPreviousPaymentOptionStillDisplayed: Bool = {
                 switch previousPaymentOption {
                 case .none:
@@ -337,6 +338,7 @@ public final class EmbeddedPaymentElement {
 
         // Clear out the form controller to clear any payment option
         selectedFormViewController = nil
+        lastConfirmedFormPaymentOption = nil
 
         // Reset the selection on the `embeddedPaymentMethodsView`
         embeddedPaymentMethodsView.resetSelection()
@@ -392,6 +394,9 @@ public final class EmbeddedPaymentElement {
 
     /// The value of `paymentOption` when we last called `embeddedPaymentElementDidUpdatePaymentOption`
     internal var lastUpdatedPaymentOption: PaymentOptionDisplayData?
+    /// The payment option confirmed by the last form "Continue", used to restore the form if the user
+    /// edits it and then cancels.
+    internal var lastConfirmedFormPaymentOption: PaymentOption?
     internal var _paymentOption: PaymentOption? {
     #if DEBUG
         if let testPaymentOption = _test_paymentOption {

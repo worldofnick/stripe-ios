@@ -724,6 +724,11 @@ class PaymentSheetVerticalViewController: UIViewController, FlowControllerViewCo
         // Reuse the `previousPaymentOption` restore machinery (also used by FlowController's `update()`)
         // to rebuild the UI with the reverted selection. `regenerateUI` preserves the form cache, so
         // in-progress form input survives the revert.
+        if case .new(let confirmParams) = paymentOption {
+            // ...except when reverting to a completed form: discard any edits made to that same form
+            // so it's rebuilt from the snapshotted input rather than the (edited) cached form.
+            formCache[confirmParams.paymentMethodType] = nil
+        }
         previousPaymentOption = paymentOption
         regenerateUI()
         previousPaymentOption = nil

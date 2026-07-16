@@ -472,10 +472,12 @@ class PaymentSheetFlowControllerViewController: UIViewController, FlowController
             mode = .selectingSaved
             // The saved PM carousel derives its selection from the (already restored) persisted default
             savedPaymentOptionsViewController.refreshSelectionFromStorage()
-        case .new, .external:
-            // The add screen retains the previously completed form. Note: if the user edited that same
-            // form before cancelling, the edited input is kept rather than the exact snapshot (same
-            // limitation as EmbeddedPaymentElement, see MOBILESDK-3361).
+        case .new(let confirmParams):
+            linkConfirmOption = nil
+            mode = .addingNew
+            // Restore the form to the snapshotted input, discarding any edits made to that same form
+            addPaymentMethodViewController.resetForm(to: confirmParams)
+        case .external:
             linkConfirmOption = nil
             mode = .addingNew
         case nil:

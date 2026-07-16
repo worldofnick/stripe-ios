@@ -125,6 +125,47 @@ class EmbeddedSelectionRevertUITests: PaymentSheetUITestCase {
         XCTAssertFalse(app.buttons["••••6789"].waitForExistence(timeout: 2))
     }
 
+    func testEmbedded_sameRowFormCancel_afterEdit_revertsToCommittedCard() {
+        var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
+        settings.mode = .payment
+        settings.integrationType = .deferred_csc
+        settings.uiStyle = .embedded
+        settings.formSheetAction = .continue
+        settings.customerMode = .new
+        loadPlayground(app, settings)
+
+        app.buttons["Present embedded payment element"].waitForExistenceAndTap()
+
+        // Commit card A via Continue
+        app.buttons["Card"].waitForExistenceAndTap()
+        try! fillCardData(app, cardNumber: "4242424242424242", postalEnabled: true)
+        app.stp_dismissKeyboard() // The keyboard covers the Continue button
+        app.buttons["Continue"].waitForExistenceAndTap()
+        XCTAssertTrue(app.staticTexts["Payment method"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["Payment method"].label, "•••• 4242")
+        XCTAssertTrue(app.buttons["Card"].isSelected)
+
+        // Re-open the same row's form, edit it to card B, then cancel
+        app.buttons["Card"].waitForExistenceAndTap()
+        let cardNumberField = app.textFields["Card number"]
+        XCTAssertTrue(cardNumberField.waitForExistence(timeout: 5))
+        XCTAssertEqual(cardNumberField.value as? String, "4242424242424242")
+        cardNumberField.tap()
+        cardNumberField.clearText()
+        app.typeText("5555555555554444")
+        app.buttons["Close"].waitForExistenceAndTap()
+
+        // The selection should revert to card A, not clear or become card B
+        XCTAssertTrue(app.staticTexts["Payment method"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["Payment method"].label, "•••• 4242")
+        XCTAssertTrue(app.buttons["Card"].isSelected)
+
+        // Re-open: the form should be restored to card A
+        app.buttons["Card"].waitForExistenceAndTap()
+        XCTAssertTrue(cardNumberField.waitForExistence(timeout: 5))
+        XCTAssertEqual(cardNumberField.value as? String, "4242424242424242", "Form should be restored to the committed card after cancel")
+    }
+
     // MARK: - Helpers (mirrored from EmbeddedUITests)
 
     /// Returning customers have two payment methods in a non-deterministic order.

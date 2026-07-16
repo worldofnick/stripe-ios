@@ -158,6 +158,45 @@ class PaymentSheetSelectionRevertUITests: PaymentSheetUITestCase {
         XCTAssertEqual(app.textFields["Card number"].value as? String, "5555555555554444", "Form input should be preserved after cancel")
     }
 
+    func testFlowControllerVertical_cancelAfterEditingCommittedCardForm_revertsToOriginalCard() {
+        var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
+        settings.uiStyle = .flowController
+        settings.layout = .vertical
+        settings.customerMode = .new
+        settings.applePayEnabled = .off
+        settings.linkEnabledMode = .off
+        loadPlayground(app, settings)
+
+        let paymentMethodButton = app.buttons["Payment method"]
+        XCTAssertTrue(paymentMethodButton.waitForExistence(timeout: 10))
+
+        // Commit card A via Continue
+        paymentMethodButton.tap()
+        app.buttons["Card"].waitForExistenceAndTap()
+        try! fillCardData(app, cardNumber: "4242424242424242", postalEnabled: true)
+        tapContinueRevealingIfNeeded()
+        waitForLabel(paymentMethodButton, hasPrefix: "•••• 4242")
+
+        // Re-open (shows the same form with card A), edit it to card B, then cancel
+        paymentMethodButton.tap()
+        let cardNumberField = app.textFields["Card number"]
+        XCTAssertTrue(cardNumberField.waitForExistence(timeout: 5))
+        XCTAssertEqual(cardNumberField.value as? String, "4242424242424242")
+        cardNumberField.tap()
+        cardNumberField.clearText()
+        app.typeText("5555555555554444")
+        app.tapCoordinate(at: CGPoint(x: 200, y: 100)) // dismiss keyboard
+        app.tapCoordinate(at: CGPoint(x: 200, y: 100)) // dismiss sheet
+
+        // The selection should revert to card A, not the edited card B
+        waitForLabel(paymentMethodButton, hasPrefix: "•••• 4242")
+
+        // Re-open: the form should be restored to card A
+        paymentMethodButton.tap()
+        XCTAssertTrue(cardNumberField.waitForExistence(timeout: 5))
+        XCTAssertEqual(cardNumberField.value as? String, "4242424242424242", "Form should be restored to the committed card after cancel")
+    }
+
     func testFlowControllerVertical_cancelRevertsToNone() {
         var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
         settings.uiStyle = .flowController
@@ -341,6 +380,45 @@ class PaymentSheetSelectionRevertUITests: PaymentSheetUITestCase {
         reload(app, settings: settings)
         XCTAssertTrue(paymentMethodButton.waitForExistence(timeout: 10))
         waitForLabel(paymentMethodButton, hasPrefix: "•••• 4242")
+    }
+
+    func testFlowControllerHorizontal_cancelAfterEditingCommittedCardForm_revertsToOriginalCard() {
+        var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
+        settings.uiStyle = .flowController
+        settings.layout = .horizontal
+        settings.customerMode = .new
+        settings.applePayEnabled = .off
+        settings.linkEnabledMode = .off
+        loadPlayground(app, settings)
+
+        let paymentMethodButton = app.buttons["Payment method"]
+        XCTAssertTrue(paymentMethodButton.waitForExistence(timeout: 10))
+
+        // Commit card A via Continue (with no saved PMs or wallets, the add screen shows directly)
+        paymentMethodButton.tap()
+        try! fillCardData(app, cardNumber: "4242424242424242")
+        app.stp_dismissKeyboard() // The keyboard covers the Continue button
+        app.buttons["Continue"].waitForExistenceAndTap()
+        waitForLabel(paymentMethodButton, hasPrefix: "•••• 4242")
+
+        // Re-open (shows the same form with card A), edit it to card B, then cancel by tapping outside
+        paymentMethodButton.tap()
+        let cardNumberField = app.textFields["Card number"]
+        XCTAssertTrue(cardNumberField.waitForExistence(timeout: 5))
+        XCTAssertEqual(cardNumberField.value as? String, "4242424242424242")
+        cardNumberField.tap()
+        cardNumberField.clearText()
+        app.typeText("5555555555554444")
+        app.tapCoordinate(at: CGPoint(x: 100, y: 100)) // dismiss keyboard
+        app.tapCoordinate(at: CGPoint(x: 100, y: 100)) // dismiss sheet
+
+        // The selection should revert to card A, not the edited card B
+        waitForLabel(paymentMethodButton, hasPrefix: "•••• 4242")
+
+        // Re-open: the form should be restored to card A
+        paymentMethodButton.tap()
+        XCTAssertTrue(cardNumberField.waitForExistence(timeout: 5))
+        XCTAssertEqual(cardNumberField.value as? String, "4242424242424242", "Form should be restored to the committed card after cancel")
     }
 
     func testFlowControllerHorizontal_deleteSelectedPM_thenCancel_gracefulFallback() {

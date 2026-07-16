@@ -214,6 +214,34 @@ class AddPaymentMethodViewController: UIViewController {
 
     // MARK: - Internal
 
+    /// Discards any in-progress edits to the currently displayed form and rebuilds it from the given
+    /// customer input, e.g. to restore a previously completed form after the user cancels the sheet.
+    /// No-op unless the given input is for the currently displayed form's payment method type.
+    func resetForm(to customerInput: IntentConfirmParams) {
+        guard customerInput.paymentMethodType == paymentMethodFormViewController.paymentMethodType else {
+            return
+        }
+        formCache[customerInput.paymentMethodType] = nil
+        paymentMethodFormViewController = PaymentMethodFormViewController(
+            type: customerInput.paymentMethodType,
+            intent: intent,
+            elementsSession: elementsSession,
+            previousCustomerInput: customerInput,
+            formCache: formCache,
+            configuration: configuration,
+            paymentMethodOrientation: paymentMethodOrientation,
+            headerView: nil,
+            analyticsHelper: analyticsHelper,
+            paymentMethodMessagingPromotionsHelper: paymentMethodMessagingPromotionsHelper,
+            isLinkUI: isLinkUI,
+            delegate: self,
+            linkAppearance: linkAppearance
+        )
+        if isViewLoaded {
+            updateUI()
+        }
+    }
+
     func didTapCallToActionButton(from viewController: UIViewController) {
         paymentMethodFormViewController.didTapCallToActionButton(from: viewController)
     }
