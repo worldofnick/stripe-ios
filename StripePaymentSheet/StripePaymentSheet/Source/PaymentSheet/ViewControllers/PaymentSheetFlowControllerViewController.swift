@@ -481,10 +481,13 @@ class PaymentSheetFlowControllerViewController: UIViewController, FlowController
             }()
             mode = .selectingSaved
             savedPaymentOptionsViewController.select(paymentOption: paymentOption)
+            // Any carousel browsing on the add screen was abandoned; don't leave it looking selected
+            addPaymentMethodViewController.resetToDefaultType()
         } else {
             linkConfirmOption = nil
             // Discard any in-progress form input; a completed form would otherwise still be
             // returned as the selection
+            addPaymentMethodViewController.resetToDefaultType()
             addPaymentMethodViewController.clearForm()
             mode = savedPaymentOptionsViewController.hasOptionsExcludingAdd ? .selectingSaved : .addingNew
             clearSelection()

@@ -217,6 +217,16 @@ class AddPaymentMethodViewController: UIViewController {
         return true
     }
 
+    /// Returns the carousel (and the displayed form) to the default payment method type, e.g. when
+    /// cancelling reverts the selection to a saved tile: the user's abandoned carousel browsing
+    /// shouldn't linger as an apparent selection. In-progress drafts are kept in the form cache.
+    func resetToDefaultType() {
+        guard let defaultType = paymentMethodTypes.first else {
+            return
+        }
+        paymentMethodTypesView.select(defaultType)
+    }
+
     /// Discards any in-progress form input, rebuilding an empty form for the current type, e.g. when
     /// the user cancels the sheet with nothing having been selected at presentation.
     func clearForm() {

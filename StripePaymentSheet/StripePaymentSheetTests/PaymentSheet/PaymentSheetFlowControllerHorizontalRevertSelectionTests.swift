@@ -360,6 +360,37 @@ final class PaymentSheetFlowControllerHorizontalRevertSelectionTests: XCTestCase
         XCTAssertEqual(cardFormNumberText(in: vc), "4242424242424242")
     }
 
+    func testCancelAfterBrowsingAddCarousel_resetsCarouselSelection() throws {
+        // Given Link was committed (tapping its tile commits and closes)
+        let customerID = "cus_fch_carousel_reset"
+        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
+        let cardA = STPPaymentMethod._testCard()
+        let config = makeConfiguration(customerID: customerID)
+        let loadResult = makeLoadResult(
+            intentPaymentMethodTypes: [.card, .klarna],
+            elementsSession: ._testValue(paymentMethodTypes: ["card", "klarna"], isLinkPassthroughModeEnabled: true),
+            savedPaymentMethods: [cardA],
+            paymentMethodTypes: [.stripe(.card), .stripe(.klarna)]
+        )
+        let (flowController, vc) = makeFlowController(configuration: config, loadResult: loadResult)
+        let firstClose = present(flowController)
+        try tapTile(.link, in: vc)
+        wait(for: [firstClose], timeout: 2)
+        XCTAssertEqual(flowController.paymentOption?.label, "Link")
+
+        // When the user re-opens, browses to the add screen, selects another type, and cancels
+        let secondClose = present(flowController)
+        vc.didUpdateSelection(viewController: vc.savedPaymentOptionsViewController, paymentMethodSelection: .add)
+        vc.addPaymentMethodViewController.paymentMethodTypesView.select(.stripe(.klarna))
+        vc.didTapOrSwipeToDismiss()
+        wait(for: [secondClose], timeout: 2)
+
+        // Then Link is restored, and the abandoned carousel browsing doesn't linger as a selection
+        XCTAssertEqual(flowController.paymentOption?.label, "Link")
+        XCTAssertEqual(vc.mode, .selectingSaved)
+        XCTAssertEqual(vc.addPaymentMethodViewController.paymentMethodTypesView.selected, .stripe(.card))
+    }
+
     func testCancelRevertsLinkTileSelection() throws {
         // Given Link was committed (tapping its tile commits and closes)
         let customerID = "cus_fch_link"
