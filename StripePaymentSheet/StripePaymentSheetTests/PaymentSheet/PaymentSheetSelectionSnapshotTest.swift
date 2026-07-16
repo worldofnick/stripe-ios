@@ -21,7 +21,8 @@ final class PaymentSheetSelectionSnapshotTest: XCTestCase {
         CustomerPaymentOption.setDefaultPaymentMethod(.link, forCustomer: customerID)
         let snapshot = SelectionSnapshot.capture(
             paymentOption: .link(option: .wallet(brand: .link)),
-            customerID: customerID
+            customerID: customerID,
+            savedPaymentMethods: []
         )
 
         // When the user drops out of the native Link flow (which deliberately clears the selection)...
@@ -56,7 +57,8 @@ final class PaymentSheetSelectionSnapshotTest: XCTestCase {
             )
             let snapshot = SelectionSnapshot.capture(
                 paymentOption: .saved(paymentMethod: paymentMethod, confirmParams: confirmParams),
-                customerID: customerID
+                customerID: customerID,
+                savedPaymentMethods: []
             )
 
             // Then it's valid regardless of the customer's saved payment methods
@@ -73,7 +75,8 @@ final class PaymentSheetSelectionSnapshotTest: XCTestCase {
         CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(paymentMethod.stripeId), forCustomer: customerID)
         let snapshot = SelectionSnapshot.capture(
             paymentOption: .link(option: .wallet(brand: .link)),
-            customerID: customerID
+            customerID: customerID,
+            savedPaymentMethods: [paymentMethod]
         )
 
         // When the user drops out of the native Link flow and then cancels

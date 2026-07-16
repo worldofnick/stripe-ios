@@ -55,7 +55,7 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
         let sheet = PaymentSheet(paymentIntentClientSecret: "pi_123_secret_456", configuration: config)
         let vc = PaymentSheetVerticalViewController(configuration: config, loadResult: loadResult, isFlowController: false, analyticsHelper: ._testValue(), previousPaymentOption: nil)
         vc.loadViewIfNeeded()
-        sheet.persistedSelectionSnapshot = .capture(paymentOption: nil, customerID: customerID)
+        sheet.persistedSelectionSnapshot = .capture(paymentOption: nil, customerID: customerID, savedPaymentMethods: [cardA])
 
         // When the user selects Apple Pay (which persists it as the default)...
         vc.didTapPaymentMethod(.applePay)
@@ -88,7 +88,7 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
         let sheet = PaymentSheet(paymentIntentClientSecret: "pi_123_secret_456", configuration: config)
         let vc = PaymentSheetViewController(configuration: config, loadResult: loadResult, analyticsHelper: ._testValue(), delegate: sheet)
         vc.loadViewIfNeeded()
-        sheet.persistedSelectionSnapshot = .capture(paymentOption: nil, customerID: customerID)
+        sheet.persistedSelectionSnapshot = .capture(paymentOption: nil, customerID: customerID, savedPaymentMethods: [cardA, bank])
 
         // When the user taps the bank tile (which persists it as the default)...
         let savedOptions = vc.savedPaymentOptionsViewController
@@ -118,7 +118,7 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
         let sheet = PaymentSheet(paymentIntentClientSecret: "pi_123_secret_456", configuration: config)
         let vc = PaymentSheetVerticalViewController(configuration: config, loadResult: loadResult, isFlowController: false, analyticsHelper: ._testValue(), previousPaymentOption: nil)
         vc.loadViewIfNeeded()
-        sheet.persistedSelectionSnapshot = .capture(paymentOption: nil, customerID: customerID)
+        sheet.persistedSelectionSnapshot = .capture(paymentOption: nil, customerID: customerID, savedPaymentMethods: [cardA, bank])
 
         // When card A is deleted in the manage screen (in production, detach also clears the
         // persisted default — covered by SavedPaymentMethodManagerTests)...

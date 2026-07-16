@@ -164,7 +164,7 @@ public class PaymentSheet {
                     self.confirmationChallenge = confirmationChallenge
                     // Snapshot the persisted default so we can revert it if the user changes their
                     // selection (which persists at tap time) and then cancels the sheet
-                    self.persistedSelectionSnapshot = .capture(paymentOption: nil, customerID: self.configuration.customer?.id)
+                    self.persistedSelectionSnapshot = .capture(paymentOption: nil, customerID: self.configuration.customer?.id, savedPaymentMethods: loadResult.savedPaymentMethods)
                     let presentPaymentSheet: () -> Void = {
                         let paymentSheetVC = self.makePaymentSheetVC(
                             loadResult: loadResult,

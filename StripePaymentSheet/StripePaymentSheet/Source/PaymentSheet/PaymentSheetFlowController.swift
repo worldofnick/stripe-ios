@@ -551,7 +551,7 @@ extension PaymentSheet {
             }
 
             // Snapshot the current selection so we can revert to it if the user cancels the sheet
-            selectionSnapshotAtPresentation = .capture(paymentOption: internalPaymentOption, customerID: configuration.customer?.id)
+            selectionSnapshotAtPresentation = .capture(paymentOption: internalPaymentOption, customerID: configuration.customer?.id, savedPaymentMethods: viewController.savedPaymentMethods)
 
             let showPaymentOptions: () -> Void = { [weak self] in
                 guard let self = self else { return }
@@ -629,7 +629,7 @@ extension PaymentSheet {
                         self.viewController.flowControllerDelegate = self
                         // Snapshot the selection now that the payment options are replacing the loading
                         // spinner, so cancelling the sheet reverts to what the customer sees here
-                        self.selectionSnapshotAtPresentation = .capture(paymentOption: self.internalPaymentOption, customerID: self.configuration.customer?.id)
+                        self.selectionSnapshotAtPresentation = .capture(paymentOption: self.internalPaymentOption, customerID: self.configuration.customer?.id, savedPaymentMethods: self.viewController.savedPaymentMethods)
                         bottomSheetVC.setViewControllers([self.viewController])
                     }
                 }

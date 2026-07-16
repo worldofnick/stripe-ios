@@ -14,12 +14,18 @@ struct SelectionSnapshot {
     let paymentOption: PaymentOption?
     /// The locally persisted default (`UserDefaults`) at presentation time.
     let localCustomerPaymentOption: CustomerPaymentOption?
+    /// The ids of the saved payment methods displayed by the sheet at presentation time. Used to
+    /// distinguish a payment method deleted during the presentation (visible then, gone at cancel)
+    /// from one that still exists but is filtered out of this sheet's display (e.g. by intent
+    /// payment method types or configuration).
+    let savedPaymentMethodIDsAtPresentation: Set<String>
 
     /// Captures the current selection state for the given customer.
-    static func capture(paymentOption: PaymentOption?, customerID: String?) -> SelectionSnapshot {
+    static func capture(paymentOption: PaymentOption?, customerID: String?, savedPaymentMethods: [STPPaymentMethod]) -> SelectionSnapshot {
         return SelectionSnapshot(
             paymentOption: paymentOption,
-            localCustomerPaymentOption: CustomerPaymentOption.localDefaultPaymentMethod(for: customerID)
+            localCustomerPaymentOption: CustomerPaymentOption.localDefaultPaymentMethod(for: customerID),
+            savedPaymentMethodIDsAtPresentation: Set(savedPaymentMethods.map(\.stripeId))
         )
     }
 
@@ -29,7 +35,8 @@ struct SelectionSnapshot {
     var clearingLinkSelection: SelectionSnapshot {
         return SelectionSnapshot(
             paymentOption: nil,
-            localCustomerPaymentOption: localCustomerPaymentOption == .link ? nil : localCustomerPaymentOption
+            localCustomerPaymentOption: localCustomerPaymentOption == .link ? nil : localCustomerPaymentOption,
+            savedPaymentMethodIDsAtPresentation: savedPaymentMethodIDsAtPresentation
         )
     }
 
@@ -57,8 +64,11 @@ struct SelectionSnapshot {
     func restoreLocalPersistence(customerID: String?, savedPaymentMethods: [STPPaymentMethod]) {
         var valueToRestore = localCustomerPaymentOption
         if case .stripeId(let stripeId) = localCustomerPaymentOption,
+           savedPaymentMethodIDsAtPresentation.contains(stripeId),
            !savedPaymentMethods.contains(where: { $0.stripeId == stripeId }) {
-            // The persisted PM was deleted while the sheet was presented; don't restore a dead reference.
+            // The persisted PM was visible at presentation but is gone now — it was deleted while
+            // the sheet was presented; don't restore a dead reference. (A PM that was never visible
+            // isn't deleted — it's merely filtered out of this sheet — and is restored normally.)
             valueToRestore = nil
         }
         guard valueToRestore != CustomerPaymentOption.localDefaultPaymentMethod(for: customerID) else {

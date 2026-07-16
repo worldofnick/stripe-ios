@@ -116,6 +116,27 @@ final class PaymentSheetFlowControllerHorizontalRevertSelectionTests: XCTestCase
         XCTAssertEqual(freshFlowController.paymentOption?.label, "•••• 4242")
     }
 
+    func testCancel_preservesPersistedDefaultFilteredOutOfThisSheet() throws {
+        // Given the persisted default references a saved payment method that still exists but is
+        // filtered out of this sheet's display (e.g. a bank account with delayed PMs disabled)
+        let customerID = "cus_fch_filtered_default"
+        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
+        let cardA = STPPaymentMethod._testCard()
+        let hiddenBank = STPPaymentMethod._testUSBankAccount()
+        CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(hiddenBank.stripeId), forCustomer: customerID)
+        let config = makeConfiguration(customerID: customerID)
+        let loadResult = makeLoadResult(savedPaymentMethods: [cardA]) // The bank is filtered out
+        let (flowController, vc) = makeFlowController(configuration: config, loadResult: loadResult)
+
+        // When the user presents the sheet and immediately cancels
+        let closed = present(flowController)
+        vc.didTapOrSwipeToDismiss()
+        wait(for: [closed], timeout: 2)
+
+        // Then the valid persisted default must not be erased — it wasn't deleted, just not shown
+        XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .stripeId(hiddenBank.stripeId))
+    }
+
     func testCancelRevertsToApplePay() throws {
         // Given Apple Pay was committed (tapping its tile commits and closes)
         let customerID = "cus_fch_applepay"
