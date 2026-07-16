@@ -214,19 +214,34 @@ class AddPaymentMethodViewController: UIViewController {
 
     // MARK: - Internal
 
-    /// Discards any in-progress edits to the currently displayed form and rebuilds it from the given
-    /// customer input, e.g. to restore a previously completed form after the user cancels the sheet.
-    /// No-op unless the given input is for the currently displayed form's payment method type.
+    /// Discards any in-progress edits and rebuilds the form from the given customer input, switching
+    /// the displayed payment method type if necessary, e.g. to restore a previously completed form
+    /// after the user cancels the sheet.
     func resetForm(to customerInput: IntentConfirmParams) {
-        guard customerInput.paymentMethodType == paymentMethodFormViewController.paymentMethodType else {
+        guard paymentMethodTypes.contains(customerInput.paymentMethodType) else {
             return
         }
         formCache[customerInput.paymentMethodType] = nil
+        previousCustomerInput = customerInput
+        paymentMethodTypesView.select(customerInput.paymentMethodType)
+        replaceFormViewController(type: customerInput.paymentMethodType, previousCustomerInput: customerInput)
+        previousCustomerInput = nil
+    }
+
+    /// Discards any in-progress form input, rebuilding an empty form for the current type, e.g. when
+    /// the user cancels the sheet with nothing having been selected at presentation.
+    func clearForm() {
+        let type = paymentMethodFormViewController.paymentMethodType
+        formCache[type] = nil
+        replaceFormViewController(type: type, previousCustomerInput: nil)
+    }
+
+    private func replaceFormViewController(type: PaymentSheet.PaymentMethodType, previousCustomerInput: IntentConfirmParams?) {
         paymentMethodFormViewController = PaymentMethodFormViewController(
-            type: customerInput.paymentMethodType,
+            type: type,
             intent: intent,
             elementsSession: elementsSession,
-            previousCustomerInput: customerInput,
+            previousCustomerInput: previousCustomerInput,
             formCache: formCache,
             configuration: configuration,
             paymentMethodOrientation: paymentMethodOrientation,

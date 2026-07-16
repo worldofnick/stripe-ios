@@ -166,6 +166,94 @@ class EmbeddedSelectionRevertUITests: PaymentSheetUITestCase {
         XCTAssertEqual(cardNumberField.value as? String, "4242424242424242", "Form should be restored to the committed card after cancel")
     }
 
+    func testEmbedded_sameRowFormCancel_afterEditingExternalPMForm_revertsToCommitted() {
+        var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
+        settings.mode = .payment
+        settings.integrationType = .deferred_csc
+        settings.uiStyle = .embedded
+        settings.formSheetAction = .continue
+        settings.customerMode = .new
+        settings.externalPaymentMethods = .paypal
+        settings.collectName = .always // Forces a billing details form for the external PM
+        loadPlayground(app, settings)
+
+        app.buttons["Present embedded payment element"].waitForExistenceAndTap()
+
+        // Commit external PayPal (with a name) via Continue
+        app.buttons["PayPal"].waitForExistenceAndTap()
+        let nameField = app.textFields["Full name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
+        nameField.tap()
+        app.typeText("Jane Doe")
+        XCTAssertTrue(app.buttons["Continue"].waitForExistenceAndTap()) // Visible above the keyboard
+        XCTAssertTrue(app.staticTexts["Payment method"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["Payment method"].label, "PayPal")
+        XCTAssertTrue(app.buttons["PayPal"].isSelected)
+
+        // Re-open the same row's form, change the name, then cancel
+        app.buttons["PayPal"].waitForExistenceAndTap()
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
+        nameField.tap()
+        nameField.clearText()
+        app.typeText("John Smith")
+        XCTAssertTrue(app.buttons["Close"].waitForExistenceAndTap()) // Visible above the keyboard
+
+        // The selection should revert to the committed PayPal, not clear
+        XCTAssertTrue(app.staticTexts["Payment method"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["Payment method"].label, "PayPal")
+        XCTAssertTrue(app.buttons["PayPal"].isSelected)
+
+        // Re-open: the form should be restored to the committed name
+        app.buttons["PayPal"].waitForExistenceAndTap()
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
+        XCTAssertEqual(nameField.value as? String, "Jane Doe", "Form should be restored to the committed input after cancel")
+    }
+
+    func testEmbedded_sameRowFormCancel_afterUpdate_stillRestoresCommittedCard() {
+        var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
+        settings.customerMode = .new
+        settings.mode = .payment
+        settings.integrationType = .deferred_csc
+        settings.uiStyle = .embedded
+        settings.formSheetAction = .continue
+        loadPlayground(app, settings)
+        app.buttons["Present embedded payment element"].waitForExistenceAndTap()
+
+        // Commit a card via Continue
+        app.buttons["Card"].waitForExistenceAndTap()
+        try! fillCardData(app, postalEnabled: true)
+        app.stp_dismissKeyboard()
+        app.buttons["Continue"].waitForExistenceAndTap()
+        XCTAssertTrue(app.staticTexts["Payment method"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["Payment method"].label, "•••• 4242")
+
+        // Switch to setup mode and back to payment — each triggers update(); the second one
+        // restores the completed card form and keeps it selected
+        app.buttons.matching(identifier: "Setup").element(boundBy: 1).waitForExistenceAndTap()
+        XCTAssertTrue(app.buttons["Reload"].waitForExistence(timeout: 10))
+        app.buttons["Card"].waitForExistenceAndTap()
+        app.buttons["Continue"].waitForExistenceAndTap()
+        XCTAssertTrue(app.staticTexts["Payment method"].waitForExistence(timeout: 10))
+        app.buttons.matching(identifier: "Payment").element(boundBy: 1).waitForExistenceAndTap()
+        XCTAssertTrue(app.buttons["Reload"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Payment method"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["Payment method"].label, "•••• 4242")
+        XCTAssertTrue(app.buttons["Card"].isSelected)
+
+        // Edit the restored form, then cancel — the committed card should be restored, not cleared
+        app.buttons["Card"].waitForExistenceAndTap()
+        let cardNumberField = app.textFields["Card number"]
+        XCTAssertTrue(cardNumberField.waitForExistence(timeout: 5))
+        cardNumberField.tap()
+        cardNumberField.clearText()
+        app.typeText("5555555555554444")
+        app.buttons["Close"].waitForExistenceAndTap()
+
+        XCTAssertTrue(app.staticTexts["Payment method"].waitForExistence(timeout: 10), "Selection should be restored after cancelling an edited form post-update")
+        XCTAssertEqual(app.staticTexts["Payment method"].label, "•••• 4242")
+        XCTAssertTrue(app.buttons["Card"].isSelected)
+    }
+
     // MARK: - Helpers (mirrored from EmbeddedUITests)
 
     /// Returning customers have two payment methods in a non-deterministic order.

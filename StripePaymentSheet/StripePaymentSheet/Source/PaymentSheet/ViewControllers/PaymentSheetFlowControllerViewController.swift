@@ -470,18 +470,22 @@ class PaymentSheetFlowControllerViewController: UIViewController, FlowController
                 return nil
             }()
             mode = .selectingSaved
-            // The saved PM carousel derives its selection from the (already restored) persisted default
-            savedPaymentOptionsViewController.refreshSelectionFromStorage()
-        case .new(let confirmParams):
+            // Restore directly from the snapshot rather than re-deriving from defaults, which could
+            // e.g. select the server-side default instead of the snapshotted selection
+            savedPaymentOptionsViewController.select(paymentOption: paymentOption!)
+        case .new, .external:
             linkConfirmOption = nil
             mode = .addingNew
-            // Restore the form to the snapshotted input, discarding any edits made to that same form
-            addPaymentMethodViewController.resetForm(to: confirmParams)
-        case .external:
-            linkConfirmOption = nil
-            mode = .addingNew
+            // Restore the form (including its payment method type) to the snapshotted input,
+            // discarding any edits made while the sheet was presented
+            if let confirmParams = paymentOption?.newConfirmParams {
+                addPaymentMethodViewController.resetForm(to: confirmParams)
+            }
         case nil:
             linkConfirmOption = nil
+            // Discard any in-progress form input; a completed form would otherwise still be
+            // returned as the selection
+            addPaymentMethodViewController.clearForm()
             mode = savedPaymentOptionsViewController.hasOptionsExcludingAdd ? .selectingSaved : .addingNew
             clearSelection()
         }

@@ -197,6 +197,43 @@ class PaymentSheetSelectionRevertUITests: PaymentSheetUITestCase {
         XCTAssertEqual(cardNumberField.value as? String, "4242424242424242", "Form should be restored to the committed card after cancel")
     }
 
+    func testFlowControllerVertical_cancelAfterReplacingExternalPM_restoresBillingDetails() {
+        var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
+        settings.uiStyle = .flowController
+        settings.layout = .vertical
+        settings.customerMode = .new
+        settings.applePayEnabled = .off
+        settings.linkEnabledMode = .off
+        settings.externalPaymentMethods = .paypal
+        settings.collectName = .always // Forces a billing details form for the external PM
+        loadPlayground(app, settings)
+
+        let paymentMethodButton = app.buttons["Payment method"]
+        XCTAssertTrue(paymentMethodButton.waitForExistence(timeout: 10))
+
+        // Commit external PayPal with a name via Continue
+        paymentMethodButton.tap()
+        app.buttons["PayPal"].waitForExistenceAndTap()
+        let nameField = app.textFields["Full name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5))
+        nameField.tap()
+        app.typeText("Jane Doe")
+        XCTAssertTrue(app.buttons["Continue"].waitForExistenceAndTap()) // Visible above the keyboard
+        waitForLabel(paymentMethodButton, hasPrefix: "PayPal")
+        XCTAssertTrue(paymentMethodButton.label.contains("Jane Doe"), "Committed external PM should include its billing details, got \(paymentMethodButton.label)")
+
+        // Re-open (shows the external form), back out to the list (which downgrades the selection
+        // to the row without its collected billing details), then cancel
+        paymentMethodButton.tap()
+        XCTAssertTrue(app.buttons["Back"].waitForExistenceAndTap())
+        XCTAssertTrue(app.buttons["Cash App Pay"].waitForExistence(timeout: 5)) // Sanity check we're on the list
+        XCTAssertTrue(app.buttons["Close"].waitForExistenceAndTap())
+
+        // The restored selection should be equivalent to the original, including billing details
+        waitForLabel(paymentMethodButton, hasPrefix: "PayPal")
+        XCTAssertTrue(paymentMethodButton.label.contains("Jane Doe"), "Restored external PM should include its billing details, got \(paymentMethodButton.label)")
+    }
+
     func testFlowControllerVertical_cancelRevertsToNone() {
         var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
         settings.uiStyle = .flowController
@@ -222,6 +259,31 @@ class PaymentSheetSelectionRevertUITests: PaymentSheetUITestCase {
         paymentMethodButton.tap()
         XCTAssertTrue(app.buttons["Cash App Pay"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Cash App Pay"].isSelected)
+    }
+
+    func testFlowControllerVertical_formOnly_cancelAfterFillingForm_revertsToNone() {
+        var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
+        settings.uiStyle = .flowController
+        settings.layout = .vertical
+        settings.customerMode = .new
+        settings.applePayEnabled = .off
+        settings.linkEnabledMode = .off
+        settings.apmsEnabled = .off
+        settings.supportedPaymentMethods = "card" // Single LPM with no saved PMs or wallets shows the form directly
+        loadPlayground(app, settings)
+
+        let paymentMethodButton = app.buttons["Payment method"]
+        XCTAssertTrue(paymentMethodButton.waitForExistence(timeout: 10))
+        XCTAssertEqual(paymentMethodButton.label, "None")
+
+        // Fill out the card form completely, then cancel without tapping Continue
+        paymentMethodButton.tap()
+        try! fillCardData(app, cardNumber: "4242424242424242", postalEnabled: true)
+        app.tapCoordinate(at: CGPoint(x: 200, y: 100)) // dismiss keyboard
+        app.tapCoordinate(at: CGPoint(x: 200, y: 100)) // dismiss sheet
+
+        // The abandoned form entry should not become the selection
+        waitForLabel(paymentMethodButton, hasPrefix: "None")
     }
 
     func testFlowControllerVertical_deleteSelectedPM_thenCancel_gracefulFallback() {
@@ -419,6 +481,120 @@ class PaymentSheetSelectionRevertUITests: PaymentSheetUITestCase {
         paymentMethodButton.tap()
         XCTAssertTrue(cardNumberField.waitForExistence(timeout: 5))
         XCTAssertEqual(cardNumberField.value as? String, "4242424242424242", "Form should be restored to the committed card after cancel")
+    }
+
+    func testFlowControllerHorizontal_cancelAfterSwitchingFormType_revertsToCommittedCard() {
+        var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
+        settings.uiStyle = .flowController
+        settings.layout = .horizontal
+        settings.customerMode = .new
+        settings.applePayEnabled = .off
+        settings.linkEnabledMode = .off
+        loadPlayground(app, settings)
+
+        let paymentMethodButton = app.buttons["Payment method"]
+        XCTAssertTrue(paymentMethodButton.waitForExistence(timeout: 10))
+
+        // Commit card A via Continue
+        paymentMethodButton.tap()
+        try! fillCardData(app, cardNumber: "4242424242424242")
+        app.stp_dismissKeyboard()
+        app.buttons["Continue"].waitForExistenceAndTap()
+        waitForLabel(paymentMethodButton, hasPrefix: "•••• 4242")
+
+        // Re-open, switch the form to a different payment method type, then cancel
+        paymentMethodButton.tap()
+        XCTAssertNotNil(scroll(collectionView: app.collectionViews.firstMatch, toFindCellWithId: "Klarna")?.tap())
+        app.tapCoordinate(at: CGPoint(x: 100, y: 100))
+
+        // The selection should revert to the committed card, not the abandoned type switch
+        waitForLabel(paymentMethodButton, hasPrefix: "•••• 4242")
+
+        // Re-open: the card form should be showing again with card A
+        paymentMethodButton.tap()
+        let cardNumberField = app.textFields["Card number"]
+        XCTAssertTrue(cardNumberField.waitForExistence(timeout: 5))
+        XCTAssertEqual(cardNumberField.value as? String, "4242424242424242")
+    }
+
+    func testFlowControllerHorizontal_cancelAfterReplacingExternalPM_revertsToExternalPM() {
+        var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
+        settings.uiStyle = .flowController
+        settings.layout = .horizontal
+        settings.customerMode = .new
+        settings.applePayEnabled = .off
+        settings.linkEnabledMode = .off
+        settings.externalPaymentMethods = .paypal
+        loadPlayground(app, settings)
+
+        let paymentMethodButton = app.buttons["Payment method"]
+        XCTAssertTrue(paymentMethodButton.waitForExistence(timeout: 10))
+
+        // Commit external PayPal via Continue
+        paymentMethodButton.tap()
+        XCTAssertNotNil(scroll(collectionView: app.collectionViews.firstMatch, toFindCellWithId: "PayPal")?.tap())
+        app.buttons["Continue"].waitForExistenceAndTap()
+        waitForLabel(paymentMethodButton, hasPrefix: "PayPal")
+
+        // Re-open, switch to the card form and fill it, then cancel
+        paymentMethodButton.tap()
+        XCTAssertNotNil(scroll(collectionView: app.collectionViews.firstMatch, toFindCellWithId: "Card")?.tap())
+        try! fillCardData(app)
+        app.stp_dismissKeyboard()
+        app.tapCoordinate(at: CGPoint(x: 100, y: 100))
+
+        // The selection should revert to the external payment method
+        waitForLabel(paymentMethodButton, hasPrefix: "PayPal")
+    }
+
+    func testFlowControllerHorizontal_serverDefault_cancelRevertsToSnapshotSelection() {
+        var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
+        settings.uiStyle = .flowController
+        settings.layout = .horizontal
+        settings.customerMode = .returning
+        settings.customerKeyType = .customerSession
+        settings.paymentMethodSetAsDefault = .enabled
+        loadPlayground(app, settings)
+
+        let paymentMethodButton = app.buttons["Payment method"]
+        XCTAssertTrue(paymentMethodButton.waitForExistence(timeout: 10))
+
+        // Commit Apple Pay as the baseline selection (tapping the tile commits and closes)
+        paymentMethodButton.tap()
+        XCTAssertTrue(app.collectionViews.buttons["Apple Pay"].waitForExistenceAndTap())
+        waitForLabel(paymentMethodButton, hasPrefix: "Apple Pay")
+
+        // Select the bank account (requires a mandate, so the sheet stays open), then cancel
+        paymentMethodButton.tap()
+        XCTAssertNotNil(scroll(collectionView: app.collectionViews.firstMatch, toFindCellWithId: "••••6789"))
+        app.collectionViews.buttons["••••6789"].tap()
+        XCTAssertTrue(app.buttons["Close"].waitForExistenceAndTap())
+
+        // The selection should revert to Apple Pay, not the server-side default payment method
+        waitForLabel(paymentMethodButton, hasPrefix: "Apple Pay")
+    }
+
+    func testFlowControllerHorizontal_cancelAfterFillingFormWithNoneSelected_revertsToNone() {
+        var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
+        settings.uiStyle = .flowController
+        settings.layout = .horizontal
+        settings.customerMode = .new
+        settings.applePayEnabled = .off
+        settings.linkEnabledMode = .off
+        loadPlayground(app, settings)
+
+        let paymentMethodButton = app.buttons["Payment method"]
+        XCTAssertTrue(paymentMethodButton.waitForExistence(timeout: 10))
+        XCTAssertEqual(paymentMethodButton.label, "None")
+
+        // Fill out the card form completely, then cancel without tapping Continue
+        paymentMethodButton.tap()
+        try! fillCardData(app, cardNumber: "4242424242424242")
+        app.stp_dismissKeyboard()
+        app.tapCoordinate(at: CGPoint(x: 100, y: 100)) // dismiss sheet
+
+        // The abandoned form entry should not become the selection
+        waitForLabel(paymentMethodButton, hasPrefix: "None")
     }
 
     func testFlowControllerHorizontal_deleteSelectedPM_thenCancel_gracefulFallback() {

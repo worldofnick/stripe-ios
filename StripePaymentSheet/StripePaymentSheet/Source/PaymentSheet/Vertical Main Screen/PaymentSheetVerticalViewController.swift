@@ -241,11 +241,12 @@ class PaymentSheetVerticalViewController: UIViewController, FlowControllerViewCo
                     } else {
                         return nil
                     }
-                case .new(let confirmParams):
-                    return confirmParams
+                case .new, .external:
+                    // For .external, this restores the collected billing details into the form
+                    return paymentOption.newConfirmParams
                 case .link(let confirmOption):
                     return confirmOption.signupConfirmParams
-                case .applePay, .external:
+                case .applePay:
                     return nil
                 }
             }()
@@ -724,10 +725,14 @@ class PaymentSheetVerticalViewController: UIViewController, FlowControllerViewCo
         // Reuse the `previousPaymentOption` restore machinery (also used by FlowController's `update()`)
         // to rebuild the UI with the reverted selection. `regenerateUI` preserves the form cache, so
         // in-progress form input survives the revert.
-        if case .new(let confirmParams) = paymentOption {
+        if let restoredFormType = paymentOption?.newConfirmParams?.paymentMethodType {
             // ...except when reverting to a completed form: discard any edits made to that same form
             // so it's rebuilt from the snapshotted input rather than the (edited) cached form.
-            formCache[confirmParams.paymentMethodType] = nil
+            formCache[restoredFormType] = nil
+        } else if paymentOption == nil, shouldDisplayFormOnly, let onlyType = loadResult.paymentMethodTypes.first {
+            // The form is the only content; discard its input so an abandoned completed entry
+            // isn't still returned as the selection
+            formCache[onlyType] = nil
         }
         previousPaymentOption = paymentOption
         regenerateUI()
@@ -977,13 +982,15 @@ extension PaymentSheetVerticalViewController: VerticalPaymentMethodListViewContr
 
     private func makeFormVC(paymentMethodType: PaymentSheet.PaymentMethodType) -> PaymentMethodFormViewController {
         let previousCustomerInput: IntentConfirmParams? = {
-            if case let .new(confirmParams: confirmParams) = previousPaymentOption {
+            switch previousPaymentOption {
+            case .new, .external:
+                // For .external, this restores the collected billing details into the form
+                return previousPaymentOption?.newConfirmParams
+            case .saved(_, let confirmParams):
                 return confirmParams
-            } else if case let .saved(_, confirmParams) = previousPaymentOption {
-                return confirmParams
-            } else if case let .link(confirmOption) = previousPaymentOption {
+            case .link(let confirmOption):
                 return confirmOption.signupConfirmParams
-            } else {
+            case .applePay, nil:
                 return nil
             }
         }()

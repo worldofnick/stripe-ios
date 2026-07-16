@@ -432,14 +432,16 @@ extension EmbeddedPaymentElement: EmbeddedFormViewControllerDelegate {
         // state to restore, clear the selection.
         if lastSelection == currentlySelectedType,
            lastUpdatedPaymentOption != paymentOption {
-            if case .new(let confirmParams) = lastConfirmedFormPaymentOption,
-               case .new(let selectedPaymentMethodType) = currentlySelectedType,
+            if case .new(let selectedPaymentMethodType) = currentlySelectedType,
+               // The confirm params conversion covers external/custom payment methods too, restoring
+               // their collected billing details
+               let confirmParams = lastConfirmedFormPaymentOption?.newConfirmParams,
                confirmParams.paymentMethodType == selectedPaymentMethodType {
                 // Rebuild the form VC from the last confirmed input, discarding the edits
                 formCache[confirmParams.paymentMethodType] = nil
                 selectedFormViewController = Self.makeFormViewControllerIfNecessary(
                     selection: currentlySelectedType,
-                    previousPaymentOption: lastConfirmedFormPaymentOption,
+                    previousPaymentOption: .new(confirmParams: confirmParams),
                     configuration: configuration,
                     intent: intent,
                     elementsSession: elementsSession,

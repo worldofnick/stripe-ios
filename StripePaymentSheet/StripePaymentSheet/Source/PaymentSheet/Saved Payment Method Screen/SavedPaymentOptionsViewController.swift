@@ -477,11 +477,32 @@ class SavedPaymentOptionsViewController: UIViewController {
         }
     }
 
-    /// Recomputes the selected item from the persisted default (`CustomerPaymentOption`) and the current
-    /// saved payment methods, e.g. after the persisted default was restored on cancel. Does not fire
-    /// `didUpdateSelection`.
-    func refreshSelectionFromStorage() {
-        updateUI()
+    /// Selects the item matching the given payment option (Apple Pay, Link, or a saved payment
+    /// method), e.g. when restoring the selection after the user cancels the sheet. Selects directly
+    /// rather than re-deriving from defaults, and does not fire `didUpdateSelection`.
+    func select(paymentOption: PaymentOption) {
+        let target: CustomerPaymentOption? = {
+            switch paymentOption {
+            case .applePay:
+                return .applePay
+            case .link:
+                return .link
+            case .saved(let paymentMethod, _):
+                return .stripeId(paymentMethod.stripeId)
+            case .new, .external:
+                return nil
+            }
+        }()
+        guard let target, let index = viewModels.firstIndex(where: { $0 == target }) else {
+            return
+        }
+        selectedViewModelIndex = index
+        collectionView.reloadData()
+        collectionView.selectItem(at: selectedIndexPath, animated: false, scrollPosition: [])
+        updateMandateView()
+        if isViewLoaded {
+            updateFormElement()
+        }
     }
 
     func unselectPaymentMethod() {

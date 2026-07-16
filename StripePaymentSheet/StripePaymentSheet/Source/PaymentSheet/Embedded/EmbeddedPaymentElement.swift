@@ -230,7 +230,6 @@ public final class EmbeddedPaymentElement {
             self.confirmationChallenge = confirmationChallenge
             self.savedPaymentMethods = loadResult.savedPaymentMethods
             self.formCache = .init() // Clear the cache because the form may have changed e.g. different mandate or different fields.
-            self.lastConfirmedFormPaymentOption = nil // The confirmed form state may no longer be valid for the updated form
             let isPreviousPaymentOptionStillDisplayed: Bool = {
                 switch previousPaymentOption {
                 case .none:
@@ -263,6 +262,9 @@ public final class EmbeddedPaymentElement {
                 delegate: self
             )
             self.selectedFormViewController = selectedFormViewController
+            // Recompute the confirmed-form baseline from the rebuilt form: the update may have changed
+            // the form's shape, and a later cancel needs this to restore the restored form's state
+            self.lastConfirmedFormPaymentOption = selectedFormViewController?.selectedPaymentOption
             // Make the new list view, selecting the previous row if it's still in the list and it doesn't have a form or it's form is valid
             let shouldSelectPreviousRow: Bool = {
                 guard isPreviousPaymentOptionStillDisplayed else { return false }
