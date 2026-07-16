@@ -1055,20 +1055,26 @@ extension PaymentSheet.FlowController: FlowControllerViewControllerDelegate {
         if !didCancel {
             self.didPresentAndContinue = true
         }
+        // On cancel, revert the selection (and the locally persisted default) to their values at
+        // presentation time. If the snapshotted saved PM was deleted while the sheet was up, keep
+        // the sheet's own post-deletion selection instead. The UI revert is deferred to the dismiss
+        // completion so the selection doesn't visibly flip while the sheet animates away; it still
+        // runs before `updatePaymentOption` reads the reverted state.
+        var revertSelectionAfterDismissal: (() -> Void)?
         if didCancel, let snapshot = selectionSnapshotAtPresentation {
-            // Revert the selection (and the locally persisted default) to their values at presentation time.
-            // If the snapshotted saved PM was deleted while the sheet was up, keep the sheet's own
-            // post-deletion selection instead.
             snapshot.restoreLocalPersistence(
                 customerID: configuration.customer?.id,
                 savedPaymentMethods: flowControllerViewController.savedPaymentMethods
             )
             if case .revert(let paymentOptionToRestore) = snapshot.paymentOptionRestoration(savedPaymentMethods: flowControllerViewController.savedPaymentMethods) {
-                flowControllerViewController.revertSelection(to: paymentOptionToRestore)
+                revertSelectionAfterDismissal = {
+                    flowControllerViewController.revertSelection(to: paymentOptionToRestore)
+                }
             }
         }
         selectionSnapshotAtPresentation = nil
         flowControllerViewController.dismiss(animated: true) {
+            revertSelectionAfterDismissal?()
             self.presentPaymentOptionsCompletionWithResult?(didCancel)
             self.updatePaymentOption()
             self.isPresented = false
