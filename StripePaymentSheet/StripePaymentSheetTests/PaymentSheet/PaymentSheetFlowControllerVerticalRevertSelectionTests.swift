@@ -404,6 +404,46 @@ final class PaymentSheetFlowControllerVerticalRevertSelectionTests: XCTestCase {
     }
 
     @MainActor
+    func testCancelAfterEditingCoBrandedCardBrand_stillRestoresSavedCard() throws {
+        // Given a co-branded saved card (displaying Visa) is the selection and persisted default
+        let customerID = "cus_fcv_cbc_edit"
+        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
+        let cardDisplayingVisa = STPPaymentMethod._testCardCoBranded(displayBrand: "visa", networks: ["visa", "cartes_bancaires"])
+        CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(cardDisplayingVisa.stripeId), forCustomer: customerID)
+        let config = makeConfiguration(customerID: customerID)
+        let loadResult = makeLoadResult(savedPaymentMethods: [cardDisplayingVisa])
+        let (flowController, vc) = makeFlowController(configuration: config, loadResult: loadResult)
+        XCTAssertEqual(flowController.paymentOption?.label, "•••• 4242")
+
+        // When the user edits the card's preferred network while the sheet is presented...
+        let closed = present(flowController)
+        let cardDisplayingCartesBancaires = STPPaymentMethod._testCardCoBranded(displayBrand: "cartes_bancaires", networks: ["visa", "cartes_bancaires"])
+        let manageVC = VerticalSavedPaymentMethodsViewController(
+            configuration: config,
+            intent: ._testValue(),
+            selectedPaymentMethod: cardDisplayingCartesBancaires,
+            paymentMethods: [cardDisplayingCartesBancaires],
+            elementsSession: ._testCardValue(),
+            analyticsHelper: ._testValue(),
+            defaultPaymentMethod: nil
+        )
+        vc.didComplete(viewController: manageVC, with: cardDisplayingCartesBancaires, latestPaymentMethods: [cardDisplayingCartesBancaires], didTapToDismiss: false, defaultPaymentMethod: nil)
+
+        // ...then changes the selection and cancels
+        try tapRow(.new(paymentMethodType: .stripe(.cashApp)), in: vc)
+        vc.didTapOrSwipeToDismiss()
+        wait(for: [closed], timeout: 2)
+
+        // Then the saved card is restored using its up-to-date object — not dropped to nil
+        XCTAssertEqual(flowController.paymentOption?.label, "•••• 4242")
+        guard case .saved(let restored) = vc.paymentMethodListViewController?.currentSelection else {
+            return XCTFail("Expected the edited saved card to be selected after cancel, got \(String(describing: vc.paymentMethodListViewController?.currentSelection))")
+        }
+        XCTAssertEqual(restored.stripeId, cardDisplayingVisa.stripeId)
+        XCTAssertEqual(restored.calculateCardBrandToDisplay(), .cartesBancaires)
+    }
+
+    @MainActor
     func testDeleteSelectedPM_thenCancel_keepsFallbackSelection() throws {
         // Given the selected/persisted saved card is deleted while the sheet is presented
         let customerID = "cus_fcv_delete_selected"

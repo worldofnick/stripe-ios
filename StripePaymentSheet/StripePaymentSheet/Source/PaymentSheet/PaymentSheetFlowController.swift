@@ -1048,7 +1048,7 @@ extension PaymentSheet.FlowController: FlowControllerViewControllerDelegate {
                 savedPaymentMethods: flowControllerViewController.savedPaymentMethods
             )
             if snapshot.isPaymentOptionValid(savedPaymentMethods: flowControllerViewController.savedPaymentMethods) {
-                flowControllerViewController.revertSelection(to: snapshot.paymentOption)
+                flowControllerViewController.revertSelection(to: snapshot.paymentOptionForRestoration(savedPaymentMethods: flowControllerViewController.savedPaymentMethods))
             }
         }
         selectionSnapshotAtPresentation = nil

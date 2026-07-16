@@ -58,6 +58,18 @@ struct SelectionSnapshot {
         return savedPaymentMethods.contains(where: { $0.stripeId == paymentMethod.stripeId })
     }
 
+    /// The snapshotted payment option to restore, re-resolving a saved payment method against the
+    /// given up-to-date list: it may have been edited while the sheet was presented (e.g. a
+    /// co-branded card's preferred network changed), and restoration must reference the current
+    /// object or it won't match any displayed row.
+    func paymentOptionForRestoration(savedPaymentMethods: [STPPaymentMethod]) -> PaymentOption? {
+        guard case .saved(let paymentMethod, let confirmParams) = paymentOption,
+              let currentPaymentMethod = savedPaymentMethods.first(where: { $0.stripeId == paymentMethod.stripeId }) else {
+            return paymentOption
+        }
+        return .saved(paymentMethod: currentPaymentMethod, confirmParams: confirmParams)
+    }
+
     /// Restores the locally persisted default to its at-presentation value, unless it referenced a saved
     /// payment method that no longer exists, in which case it's cleared. Only local `UserDefaults` state
     /// is touched — the server-side default is never reverted.
