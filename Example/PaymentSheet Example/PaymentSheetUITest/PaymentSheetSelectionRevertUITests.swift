@@ -234,6 +234,97 @@ class PaymentSheetSelectionRevertUITests: PaymentSheetUITestCase {
         XCTAssertTrue(paymentMethodButton.label.contains("Jane Doe"), "Restored external PM should include its billing details, got \(paymentMethodButton.label)")
     }
 
+    func testFlowControllerVertical_cancelAfterReplacingLinkedBank_revertsToLinkedBank() {
+        var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
+        settings.uiStyle = .flowController
+        settings.layout = .vertical
+        settings.fcLiteEnabled = .on
+        settings.apmsEnabled = .off
+        settings.supportedPaymentMethods = "card,link"
+        settings.defaultBillingAddress = .randomEmail
+        loadPlayground(app, settings)
+
+        let paymentMethodButton = app.buttons["Payment method"]
+        XCTAssertTrue(paymentMethodButton.waitForExistence(timeout: 10))
+
+        // Link a bank via the Instant Debits (FC Lite) flow and commit it via Continue
+        paymentMethodButton.tap()
+        XCTAssertTrue(app.buttons["Bank"].waitForExistenceAndTap())
+        XCTAssertTrue(app.buttons["Continue"].waitForExistenceAndTap()) // Launches FC Lite
+
+        // Consent pane
+        let agreeButtonPredicate = NSPredicate(format: "label CONTAINS[cd] 'Agree and continue'")
+        XCTAssertTrue(app.webViews.firstMatch.buttons.containing(agreeButtonPredicate).firstMatch.waitForExistence(timeout: 10.0))
+        tapFCPrimaryButton()
+        // Link signup pane
+        let continueWithLinkButton = app.webViews.firstMatch.buttons.containing(NSPredicate(format: "label CONTAINS[cd] 'Continue with Link'")).firstMatch
+        let successBankButton = app.webViews.firstMatch.buttons.containing(NSPredicate(format: "label CONTAINS[cd] 'Disputed'")).firstMatch
+        XCTAssertTrue(continueWithLinkButton.waitForExistence(timeout: 10.0))
+        advanceFCPrimaryCTA(continueButton: continueWithLinkButton, nextPaneElement: successBankButton)
+        // Institution picker
+        XCTAssertTrue(successBankButton.waitForExistenceAndTap(timeout: 10.0))
+        // Account picker
+        XCTAssertTrue(app.webViews.firstMatch.buttons.containing(NSPredicate(format: "label CONTAINS[cd] 'Connect account'")).firstMatch.waitForExistence(timeout: 10.0))
+        tapFCPrimaryButton()
+        // Success pane
+        XCTAssertTrue(app.webViews.firstMatch.buttons.containing(NSPredicate(format: "label CONTAINS[cd] 'Done'")).firstMatch.waitForExistence(timeout: 10.0))
+        tapFCPrimaryButton()
+
+        // Back in the sheet with the linked bank: commit via Continue. The FC Lite container may
+        // still be dismissing (leaving a stale Continue match), so retry until the sheet closes.
+        let continueButton = app.buttons["Continue"]
+        let continueGone = NSPredicate(format: "exists == false")
+        var sheetClosed = false
+        for _ in 0..<4 {
+            if continueButton.waitForExistence(timeout: 3.0) {
+                continueButton.tap()
+            }
+            if XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: continueGone, object: continueButton)], timeout: 4.0) == .completed {
+                sheetClosed = true
+                break
+            }
+        }
+        XCTAssertTrue(sheetClosed, "The sheet should close after committing the linked bank")
+        waitForLabel(paymentMethodButton, hasPrefix: "••••")
+        let committedLabel = paymentMethodButton.label
+
+        // Re-open, back out to the list, select Card instead, then cancel
+        paymentMethodButton.tap()
+        XCTAssertTrue(app.buttons["Back"].waitForExistenceAndTap())
+        XCTAssertTrue(app.buttons["Card"].waitForExistenceAndTap())
+        XCTAssertTrue(app.buttons["Back"].waitForExistenceAndTap())
+        XCTAssertTrue(app.buttons["Close"].waitForExistenceAndTap())
+
+        // The committed linked-bank selection should be restored
+        waitForLabel(paymentMethodButton, hasPrefix: String(committedLabel.prefix(8)))
+        XCTAssertEqual(paymentMethodButton.label, committedLabel)
+    }
+
+    /// Taps the primary CTA at the bottom of the FC Lite webview (mirrors FCLiteUITests).
+    private func tapFCPrimaryButton() {
+        let keyboardDoneButton = app.toolbars.buttons["Done"]
+        if keyboardDoneButton.waitForExistence(timeout: 1.0) {
+            keyboardDoneButton.tap()
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        app.webViews.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)).tap()
+    }
+
+    private func advanceFCPrimaryCTA(continueButton: XCUIElement, nextPaneElement: XCUIElement) {
+        if app.keyboards.firstMatch.exists || app.toolbars.buttons["Done"].exists {
+            app.typeText(XCUIKeyboardKey.return.rawValue)
+            if nextPaneElement.waitForExistence(timeout: 2.0) {
+                return
+            }
+        }
+        if continueButton.waitForExistenceAndTap(timeout: 2.0),
+           nextPaneElement.waitForExistence(timeout: 2.0) {
+            return
+        }
+        tapFCPrimaryButton()
+        XCTAssertTrue(nextPaneElement.waitForExistence(timeout: 10.0))
+    }
+
     func testFlowControllerVertical_cancelRevertsToNone() {
         var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
         settings.uiStyle = .flowController

@@ -3,7 +3,7 @@
 //  StripePaymentSheetTests
 //
 
-@_spi(STP) import StripeCore
+@testable @_spi(STP) import StripeCore
 @testable @_spi(STP) import StripePayments
 @testable @_spi(STP) import StripePaymentSheet
 @_spi(STP) import StripePaymentsTestUtils
@@ -352,6 +352,46 @@ final class PaymentSheetFlowControllerHorizontalRevertSelectionTests: XCTestCase
         // Then the deleted card is not resurrected, in memory or persistence
         XCTAssertNotEqual(flowController.paymentOption?.label, "•••• 4242")
         XCTAssertNotEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .stripeId(cardA.stripeId))
+    }
+
+    func testRevertSelectionToLinkedBank_restoresFormNotCarousel() throws {
+        // Given a controller offering card + Instant Debits, and a snapshotted linked-bank selection
+        // (Instant Debits forms create their payment method in the bank-auth flow and return it as
+        // `.saved` — it's form-backed, not a carousel tile)
+        let customerID = "cus_fch_linked_bank"
+        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
+        var config = makeConfiguration(customerID: customerID)
+        config.defaultBillingDetails.email = "test@example.com" // The Instant Debits form requires an email
+        let loadResult = makeLoadResult(
+            elementsSession: ._testValue(paymentMethodTypes: ["card"], isLinkPassthroughModeEnabled: true),
+            paymentMethodTypes: [.stripe(.card), .instantDebits]
+        )
+        let (_, vc) = makeFlowController(configuration: config, loadResult: loadResult)
+        let paymentMethod = STPPaymentMethod._testUSBankAccount()
+        // Give the linked-bank payment method real response fields so it can be re-decoded when the
+        // form is rebuilt, like a payment method created by the real bank-auth flow
+        var linkBankPaymentMethod = LinkBankPaymentMethod(id: paymentMethod.stripeId)
+        linkBankPaymentMethod._allResponseFieldsStorage = NonEncodableParameters(storage: paymentMethod.allResponseFields as? [String: Any] ?? [:])
+        let confirmParams = IntentConfirmParams(type: .instantDebits)
+        confirmParams.instantDebitsLinkedBank = InstantDebitsLinkedBank(
+            paymentMethod: linkBankPaymentMethod,
+            bankName: "StripeBank",
+            last4: "6789",
+            linkMode: .linkPaymentMethod,
+            incentiveEligible: false,
+            linkAccountSessionId: "fcsess_123"
+        )
+
+        // When reverting to it (e.g. the user cancels after abandoning a different selection)
+        vc.revertSelection(to: .saved(paymentMethod: paymentMethod, confirmParams: confirmParams))
+
+        // Then the linked-bank form is restored — not a saved-PM carousel selection
+        XCTAssertEqual(vc.mode, .addingNew)
+        XCTAssertEqual(vc.addPaymentMethodViewController.paymentMethodFormViewController.paymentMethodType, .instantDebits)
+        guard case .saved(let restored, _) = vc.selectedPaymentOption else {
+            return XCTFail("Expected the linked-bank selection to be restored, got \(String(describing: vc.selectedPaymentOption))")
+        }
+        XCTAssertEqual(restored.stripeId, paymentMethod.stripeId)
     }
 
     func testCancelRevertsLinkTileSelection() throws {

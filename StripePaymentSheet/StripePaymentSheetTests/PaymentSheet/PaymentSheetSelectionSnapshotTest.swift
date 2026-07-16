@@ -3,6 +3,7 @@
 //  StripePaymentSheetTests
 //
 
+@testable @_spi(STP) import StripeCore
 @testable @_spi(STP) import StripePayments
 @testable @_spi(STP) import StripePaymentSheet
 import XCTest
@@ -35,6 +36,35 @@ final class PaymentSheetSelectionSnapshotTest: XCTestCase {
             CustomerPaymentOption.localDefaultPaymentMethod(for: customerID),
             "The persisted default should not remain Link after the Link selection was deliberately cleared"
         )
+    }
+
+    func testIsPaymentOptionValid_formBackedLinkedBankSaved_isValidForBothLinkModes() {
+        // Instant Debits and Link Card Brand forms create their payment method in the bank-auth flow
+        // and return it as `.saved` — it's form-backed, not customer-saved, so it can't be
+        // invalidated by deletions even though it never appears in `savedPaymentMethods`
+        for (type, linkMode) in [(PaymentSheet.PaymentMethodType.instantDebits, LinkMode.linkPaymentMethod), (.linkCardBrand, .linkCardBrand)] {
+            // Given a snapshot of a completed linked-bank form selection
+            let paymentMethod = STPPaymentMethod._testUSBankAccount()
+            let confirmParams = IntentConfirmParams(type: type)
+            confirmParams.instantDebitsLinkedBank = InstantDebitsLinkedBank(
+                paymentMethod: LinkBankPaymentMethod(id: paymentMethod.stripeId),
+                bankName: "StripeBank",
+                last4: "6789",
+                linkMode: linkMode,
+                incentiveEligible: false,
+                linkAccountSessionId: "fcsess_123"
+            )
+            let snapshot = SelectionSnapshot.capture(
+                paymentOption: .saved(paymentMethod: paymentMethod, confirmParams: confirmParams),
+                customerID: customerID
+            )
+
+            // Then it's valid regardless of the customer's saved payment methods
+            XCTAssertTrue(
+                snapshot.isPaymentOptionValid(savedPaymentMethods: []),
+                "A form-backed \(type) selection should remain valid; it isn't a customer-saved payment method"
+            )
+        }
     }
 
     func testClearingLinkSelectionPreservesNonLinkPersistedDefault() {

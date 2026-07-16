@@ -45,8 +45,12 @@ extension PaymentSheet {
         /// This is often used to restore a customer's previous form input when re-presenting `AddPaymentMethodViewController`.
         var newConfirmParams: IntentConfirmParams? {
             switch self {
-            case .applePay, .saved, .link:
+            case .applePay, .link:
                 return nil
+            case .saved(_, let confirmParams):
+                // Instant Debits / Link Card Brand selections are form-backed: the payment method
+                // was created during bank auth, so restoring the selection means restoring the form
+                return confirmParams?.instantDebitsLinkedBank != nil ? confirmParams : nil
             case .new(confirmParams: let params):
                 return params
             case let .external(paymentMethod, billingDetails):

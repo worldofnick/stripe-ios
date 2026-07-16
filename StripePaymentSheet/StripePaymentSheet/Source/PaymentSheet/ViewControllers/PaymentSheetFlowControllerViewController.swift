@@ -463,6 +463,14 @@ class PaymentSheetFlowControllerViewController: UIViewController, FlowController
         isHackyLinkButtonSelected = false
         switch paymentOption {
         case .applePay, .link, .saved:
+            if let confirmParams = paymentOption?.newConfirmParams {
+                // A form-backed `.saved` selection (Instant Debits / Link Card Brand): the payment
+                // method was created by the bank-auth form, so restore the form, not a carousel tile
+                linkConfirmOption = nil
+                mode = .addingNew
+                addPaymentMethodViewController.resetForm(to: confirmParams)
+                break
+            }
             linkConfirmOption = {
                 if case .link(let option) = paymentOption {
                     return option

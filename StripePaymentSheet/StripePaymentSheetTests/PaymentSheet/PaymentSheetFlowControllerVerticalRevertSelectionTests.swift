@@ -3,7 +3,7 @@
 //  StripePaymentSheetTests
 //
 
-@_spi(STP) import StripeCore
+@testable @_spi(STP) import StripeCore
 @testable @_spi(STP) import StripePayments
 @testable @_spi(STP) import StripePaymentSheet
 @_spi(STP) import StripePaymentsTestUtils
@@ -274,6 +274,42 @@ final class PaymentSheetFlowControllerVerticalRevertSelectionTests: XCTestCase {
             return XCTFail("Expected an external payment option after cancel, got \(String(describing: vc.selectedPaymentOption))")
         }
         XCTAssertEqual(restoredBilling.name, "Jane Doe")
+    }
+
+    func testRevertSelectionToLinkedBank_restoresFormOverList() throws {
+        // Given a controller offering card + Instant Debits with Link enabled, and a snapshotted
+        // linked-bank selection (created by the bank-auth flow, so not in savedPaymentMethods)
+        let customerID = "cus_fcv_linked_bank"
+        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
+        var config = makeConfiguration(customerID: customerID)
+        config.defaultBillingDetails.email = "test@example.com" // The Instant Debits form requires an email
+        let loadResult = makeLoadResult(
+            intentPaymentMethodTypes: [.card],
+            elementsSession: ._testValue(paymentMethodTypes: ["card"], isLinkPassthroughModeEnabled: true),
+            paymentMethodTypes: [.stripe(.card), .instantDebits]
+        )
+        let (_, vc) = makeFlowController(configuration: config, loadResult: loadResult)
+        let paymentMethod = STPPaymentMethod._testUSBankAccount()
+        var linkBankPaymentMethod = LinkBankPaymentMethod(id: paymentMethod.stripeId)
+        linkBankPaymentMethod._allResponseFieldsStorage = NonEncodableParameters(storage: paymentMethod.allResponseFields as? [String: Any] ?? [:])
+        let confirmParams = IntentConfirmParams(type: .instantDebits)
+        confirmParams.instantDebitsLinkedBank = InstantDebitsLinkedBank(
+            paymentMethod: linkBankPaymentMethod,
+            bankName: "StripeBank",
+            last4: "6789",
+            linkMode: .linkPaymentMethod,
+            incentiveEligible: false,
+            linkAccountSessionId: "fcsess_123"
+        )
+
+        // When reverting to it after the user backed out to the list and cancelled
+        vc.revertSelection(to: .saved(paymentMethod: paymentMethod, confirmParams: confirmParams))
+
+        // Then the linked-bank form is restored and returned as the selection
+        guard case .saved(let restored, _) = vc.selectedPaymentOption else {
+            return XCTFail("Expected the linked-bank selection to be restored, got \(String(describing: vc.selectedPaymentOption))")
+        }
+        XCTAssertEqual(restored.stripeId, paymentMethod.stripeId)
     }
 
     func testCancelRevertsToNone() throws {

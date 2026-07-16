@@ -39,7 +39,13 @@ struct SelectionSnapshot {
     /// Other cases identify a payment method type, not a saved instance, and the available types can't
     /// change while the sheet is presented.
     func isPaymentOptionValid(savedPaymentMethods: [STPPaymentMethod]) -> Bool {
-        guard case .saved(let paymentMethod, _) = paymentOption else {
+        guard case .saved(let paymentMethod, let confirmParams) = paymentOption else {
+            return true
+        }
+        if confirmParams?.instantDebitsLinkedBank != nil {
+            // Not a customer-saved payment method: Instant Debits / Link Card Brand forms create
+            // their payment method during bank auth and return it as `.saved`, so it never appears
+            // in `savedPaymentMethods` and deletions can't invalidate it.
             return true
         }
         return savedPaymentMethods.contains(where: { $0.stripeId == paymentMethod.stripeId })
