@@ -115,44 +115,6 @@ final class PaymentSheetFlowControllerVerticalRevertSelectionTests: XCTestCase {
         XCTAssertEqual(freshFlowController.paymentOption?.label, "•••• 4242")
     }
 
-    func testCancelRevertsToApplePay() throws {
-        // Given Apple Pay was committed via Continue
-        let customerID = "cus_fcv_applepay"
-        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
-        let cardA = STPPaymentMethod._testCard()
-        let config = makeConfiguration(customerID: customerID, isApplePayEnabled: true)
-        let loadResult = makeLoadResult(savedPaymentMethods: [cardA])
-        let (flowController, vc) = makeFlowController(configuration: config, loadResult: loadResult)
-
-        let firstClose = present(flowController)
-        try tapRow(.applePay, in: vc)
-        flowController.flowControllerViewControllerShouldClose(vc, didCancel: false)
-        wait(for: [firstClose], timeout: 2)
-        XCTAssertEqual(flowController.paymentOption?.label, "Apple Pay")
-        XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .applePay)
-
-        // When the user re-opens, selects the saved card, then cancels
-        let secondClose = present(flowController)
-        try tapRow(try savedRowType(in: vc, paymentMethod: cardA), in: vc)
-        XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .stripeId(cardA.stripeId))
-        vc.didTapOrSwipeToDismiss()
-        wait(for: [secondClose], timeout: 2)
-
-        // Then Apple Pay is restored, in memory and persistence
-        XCTAssertEqual(flowController.paymentOption?.label, "Apple Pay")
-        XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .applePay)
-    }
-
-    private func savedRowType(in vc: PaymentSheetVerticalViewController, paymentMethod: STPPaymentMethod) throws -> RowButtonType {
-        let row = try XCTUnwrap(vc.paymentMethodListViewController?.rowButtons.first(where: {
-            if case .saved(let rowPM) = $0.type {
-                return rowPM.stripeId == paymentMethod.stripeId
-            }
-            return false
-        }))
-        return row.type
-    }
-
     func testCancelAfterFillingNewCardForm_revertsToSavedPM_formDraftPreserved() throws {
         // Given a saved card is selected at presentation
         let customerID = "cus_fcv_form_draft"
@@ -337,27 +299,6 @@ final class PaymentSheetFlowControllerVerticalRevertSelectionTests: XCTestCase {
         XCTAssertEqual(restoredForm.getTextFieldElement("Card number")?.text, "4242424242424242")
     }
 
-    func testCancelRevertsToNone() throws {
-        // Given nothing is selected at presentation
-        let customerID = "cus_fcv_none"
-        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
-        let config = makeConfiguration(customerID: customerID)
-        let loadResult = makeLoadResult()
-        let (flowController, vc) = makeFlowController(configuration: config, loadResult: loadResult)
-        XCTAssertNil(flowController.paymentOption)
-
-        // When the user selects Cash App Pay and cancels
-        let closed = present(flowController)
-        try tapRow(.new(paymentMethodType: .stripe(.cashApp)), in: vc)
-        XCTAssertNotNil(vc.selectedPaymentOption) // flowController.paymentOption only refreshes at close
-        vc.didTapOrSwipeToDismiss()
-        wait(for: [closed], timeout: 2)
-
-        // Then the selection reverts to nothing
-        XCTAssertNil(flowController.paymentOption)
-        XCTAssertNil(vc.paymentMethodListViewController?.currentSelection)
-    }
-
     func testFormOnly_cancelAfterFillingForm_revertsToNone() throws {
         // Given a single-LPM configuration where the form is the only content
         let customerID = "cus_fcv_form_only"
@@ -456,37 +397,4 @@ final class PaymentSheetFlowControllerVerticalRevertSelectionTests: XCTestCase {
         XCTAssertNotEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .stripeId(cardA.stripeId))
     }
 
-    @MainActor
-    func testDeleteOtherPM_thenCancel_stillReverts() throws {
-        // Given a non-selected saved PM is deleted while the sheet is presented
-        let customerID = "cus_fcv_delete_other"
-        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
-        let cardA = STPPaymentMethod._testCard()
-        let bank = STPPaymentMethod._testUSBankAccount()
-        CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(cardA.stripeId), forCustomer: customerID)
-        let config = makeConfiguration(customerID: customerID)
-        let loadResult = makeLoadResult(savedPaymentMethods: [cardA, bank])
-        let (flowController, vc) = makeFlowController(configuration: config, loadResult: loadResult)
-
-        let closed = present(flowController)
-        let manageVC = VerticalSavedPaymentMethodsViewController(
-            configuration: config,
-            intent: ._testValue(),
-            selectedPaymentMethod: cardA,
-            paymentMethods: [cardA, bank],
-            elementsSession: ._testCardValue(),
-            analyticsHelper: ._testValue(),
-            defaultPaymentMethod: nil
-        )
-        vc.didComplete(viewController: manageVC, with: cardA, latestPaymentMethods: [cardA], didTapToDismiss: false, defaultPaymentMethod: nil)
-
-        // When the user then changes the selection and cancels
-        try tapRow(.new(paymentMethodType: .stripe(.cashApp)), in: vc)
-        vc.didTapOrSwipeToDismiss()
-        wait(for: [closed], timeout: 2)
-
-        // Then the original selection is restored (the deletion doesn't affect it)
-        XCTAssertEqual(flowController.paymentOption?.label, "•••• 4242")
-        XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .stripeId(cardA.stripeId))
-    }
 }

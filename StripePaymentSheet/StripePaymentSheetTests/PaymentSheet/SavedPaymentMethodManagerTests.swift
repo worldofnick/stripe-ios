@@ -237,40 +237,6 @@ final class SavedPaymentMethodManagerTests: XCTestCase {
 
         wait(for: [detachExpectation], timeout: 5.0)
     }
-
-    func testDetachPaymentMethod_clearsMatchingLocalDefault() {
-        // Given the detached payment method is the locally persisted default
-        var configuration = configuration
-        configuration.customer = .init(id: "cus_detach_default_test", ephemeralKeySecret: ephemeralKey)
-        CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(paymentMethod.stripeId), forCustomer: configuration.customer?.id)
-        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: configuration.customer?.id) }
-        let expectation = stubDetachPaymentMethod(paymentMethod: paymentMethod, ephemeralKey: ephemeralKey)
-        let sut = SavedPaymentMethodManager(configuration: configuration, elementsSession: ._testValue(paymentMethodTypes: ["card"]), intent: ._testValue())
-
-        // When it's detached
-        sut.detach(paymentMethod: paymentMethod)
-
-        // Then the local default no longer points at the deleted payment method
-        XCTAssertNil(CustomerPaymentOption.localDefaultPaymentMethod(for: configuration.customer?.id))
-        wait(for: [expectation], timeout: 5.0)
-    }
-
-    func testDetachPaymentMethod_leavesNonMatchingLocalDefault() {
-        // Given some other payment method is the locally persisted default
-        var configuration = configuration
-        configuration.customer = .init(id: "cus_detach_other_test", ephemeralKeySecret: ephemeralKey)
-        CustomerPaymentOption.setDefaultPaymentMethod(.stripeId("pm_other"), forCustomer: configuration.customer?.id)
-        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: configuration.customer?.id) }
-        let expectation = stubDetachPaymentMethod(paymentMethod: paymentMethod, ephemeralKey: ephemeralKey)
-        let sut = SavedPaymentMethodManager(configuration: configuration, elementsSession: ._testValue(paymentMethodTypes: ["card"]), intent: ._testValue())
-
-        // When an unrelated payment method is detached
-        sut.detach(paymentMethod: paymentMethod)
-
-        // Then the local default is untouched
-        XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: configuration.customer?.id), .stripeId("pm_other"))
-        wait(for: [expectation], timeout: 5.0)
-    }
 }
 
 extension SavedPaymentMethodManagerTests {

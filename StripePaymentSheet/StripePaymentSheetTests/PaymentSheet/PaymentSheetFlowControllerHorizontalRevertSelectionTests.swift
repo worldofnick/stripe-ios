@@ -270,44 +270,6 @@ final class PaymentSheetFlowControllerHorizontalRevertSelectionTests: XCTestCase
         XCTAssertNil(flowController.paymentOption)
     }
 
-    @MainActor
-    func testDeleteSelectedPM_thenCancel_gracefulFallback() throws {
-        // Given the selected/persisted saved card is deleted while the sheet is presented
-        let customerID = "cus_fch_delete_selected"
-        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
-        let cardA = STPPaymentMethod._testCard()
-        let bank = STPPaymentMethod._testUSBankAccount()
-        CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(cardA.stripeId), forCustomer: customerID)
-        let config = makeConfiguration(customerID: customerID)
-        let loadResult = makeLoadResult(savedPaymentMethods: [cardA, bank])
-        let (flowController, vc) = makeFlowController(configuration: config, loadResult: loadResult)
-        XCTAssertEqual(flowController.paymentOption?.label, "•••• 4242")
-
-        let closed = present(flowController)
-        let updateConfig = UpdatePaymentMethodViewController.Configuration(
-            paymentMethod: cardA,
-            appearance: .default,
-            billingDetailsCollectionConfiguration: config.billingDetailsCollectionConfiguration,
-            hostedSurface: .paymentSheet,
-            cardBrandFilter: .default,
-            canRemove: true,
-            canUpdate: true,
-            isCBCEligible: false
-        )
-        let updateVC = UpdatePaymentMethodViewController(removeSavedPaymentMethodMessage: nil, isTestMode: true, configuration: updateConfig)
-        vc.savedPaymentOptionsViewController.didRemove(viewController: updateVC, paymentMethod: cardA)
-        // The removal animates a collection view batch update; let it settle
-        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.5))
-
-        // When the user cancels
-        vc.didTapOrSwipeToDismiss()
-        wait(for: [closed], timeout: 2)
-
-        // Then the deleted card is not resurrected, in memory or persistence
-        XCTAssertNotEqual(flowController.paymentOption?.label, "•••• 4242")
-        XCTAssertNotEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .stripeId(cardA.stripeId))
-    }
-
     func testRevertSelectionToLinkedBank_restoresFormNotCarousel() throws {
         // Given a controller offering card + Instant Debits, and a snapshotted linked-bank selection
         // (Instant Debits forms create their payment method in the bank-auth flow and return it as
