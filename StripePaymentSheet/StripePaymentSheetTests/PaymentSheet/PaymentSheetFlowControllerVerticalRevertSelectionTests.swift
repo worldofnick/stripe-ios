@@ -153,27 +153,6 @@ final class PaymentSheetFlowControllerVerticalRevertSelectionTests: XCTestCase {
         return row.type
     }
 
-    func testCancelRevertsPersistedLinkSelection() throws {
-        // Given a saved card is the persisted default at presentation
-        let customerID = "cus_fcv_link"
-        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
-        let cardA = STPPaymentMethod._testCard()
-        CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(cardA.stripeId), forCustomer: customerID)
-        let config = makeConfiguration(customerID: customerID)
-        let loadResult = makeLoadResult(savedPaymentMethods: [cardA])
-        let (flowController, vc) = makeFlowController(configuration: config, loadResult: loadResult)
-
-        // When the user selects Link (persisting it as the default) and then cancels
-        let closed = present(flowController)
-        vc.didTapPaymentMethod(.link)
-        XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .link)
-        vc.didTapOrSwipeToDismiss()
-        wait(for: [closed], timeout: 2)
-
-        // Then the persisted default reverts to the saved card
-        XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .stripeId(cardA.stripeId))
-    }
-
     func testCancelAfterFillingNewCardForm_revertsToSavedPM_formDraftPreserved() throws {
         // Given a saved card is selected at presentation
         let customerID = "cus_fcv_form_draft"

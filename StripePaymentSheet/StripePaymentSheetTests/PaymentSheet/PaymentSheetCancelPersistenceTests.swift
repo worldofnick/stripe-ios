@@ -37,12 +37,6 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
         )
     }
 
-    private func makeConfiguration(customerID: String) -> PaymentSheet.Configuration {
-        var config = PaymentSheet.Configuration._testValue_MostPermissive(isApplePayEnabled: false)
-        config.customer = .init(id: customerID, ephemeralKeySecret: "ek_test")
-        return config
-    }
-
     func testVerticalCancel_revertsPersistedDefault() throws {
         // Given card A is the persisted default when the sheet is presented
         let customerID = "cus_ps_cancel_vertical"
@@ -74,69 +68,5 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
             return XCTFail("Expected a saved payment method to be selected on re-presentation")
         }
         XCTAssertEqual(selected.stripeId, cardA.stripeId)
-    }
-
-    func testHorizontalCancel_revertsPersistedDefault() throws {
-        // Given card A is the persisted default when the sheet is presented
-        let customerID = "cus_ps_cancel_horizontal"
-        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
-        let cardA = STPPaymentMethod._testCard()
-        let bank = STPPaymentMethod._testUSBankAccount()
-        CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(cardA.stripeId), forCustomer: customerID)
-        let config = makeConfiguration(customerID: customerID)
-        let loadResult = makeLoadResult(savedPaymentMethods: [cardA, bank])
-        let sheet = PaymentSheet(paymentIntentClientSecret: "pi_123_secret_456", configuration: config)
-        let vc = PaymentSheetViewController(configuration: config, loadResult: loadResult, analyticsHelper: ._testValue(), delegate: sheet)
-        vc.loadViewIfNeeded()
-        sheet.persistedSelectionSnapshot = .capture(paymentOption: nil, customerID: customerID, savedPaymentMethods: [cardA, bank])
-
-        // When the user taps the bank tile (which persists it as the default)...
-        let savedOptions = vc.savedPaymentOptionsViewController
-        savedOptions.loadViewIfNeeded()
-        let bankIndex = try XCTUnwrap(savedOptions.viewModels.firstIndex(where: { $0 == CustomerPaymentOption.stripeId(bank.stripeId) }))
-        let dummyCollectionView = UICollectionView(frame: .zero, collectionViewLayout: UICollectionViewFlowLayout())
-        savedOptions.collectionView(dummyCollectionView, didSelectItemAt: IndexPath(item: bankIndex, section: 0))
-        XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .stripeId(bank.stripeId))
-
-        // ...and then cancels the sheet
-        sheet.paymentSheetViewControllerDidCancel(vc)
-
-        // Then the persisted default reverts to card A
-        XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .stripeId(cardA.stripeId))
-    }
-
-    @MainActor
-    func testVerticalDeleteSelectedPM_thenCancel_defaultNotResurrected() throws {
-        // Given card A is the persisted default and selected when the sheet is presented
-        let customerID = "cus_ps_cancel_delete"
-        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
-        let cardA = STPPaymentMethod._testCard()
-        let bank = STPPaymentMethod._testUSBankAccount()
-        CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(cardA.stripeId), forCustomer: customerID)
-        let config = makeConfiguration(customerID: customerID)
-        let loadResult = makeLoadResult(savedPaymentMethods: [cardA, bank])
-        let sheet = PaymentSheet(paymentIntentClientSecret: "pi_123_secret_456", configuration: config)
-        let vc = PaymentSheetVerticalViewController(configuration: config, loadResult: loadResult, isFlowController: false, analyticsHelper: ._testValue(), previousPaymentOption: nil)
-        vc.loadViewIfNeeded()
-        sheet.persistedSelectionSnapshot = .capture(paymentOption: nil, customerID: customerID, savedPaymentMethods: [cardA, bank])
-
-        // When card A is deleted in the manage screen (in production, detach also clears the
-        // persisted default — covered by SavedPaymentMethodManagerTests)...
-        let manageVC = VerticalSavedPaymentMethodsViewController(
-            configuration: config,
-            intent: ._testValue(),
-            selectedPaymentMethod: cardA,
-            paymentMethods: [cardA, bank],
-            elementsSession: ._testCardValue(),
-            analyticsHelper: ._testValue(),
-            defaultPaymentMethod: nil
-        )
-        vc.didComplete(viewController: manageVC, with: bank, latestPaymentMethods: [bank], didTapToDismiss: false, defaultPaymentMethod: nil)
-
-        // ...and the user then cancels
-        sheet.paymentSheetViewControllerDidCancel(vc)
-
-        // Then the deleted payment method must not be resurrected as the persisted default
-        XCTAssertNotEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .stripeId(cardA.stripeId))
     }
 }

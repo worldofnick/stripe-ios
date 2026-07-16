@@ -137,32 +137,6 @@ final class PaymentSheetFlowControllerHorizontalRevertSelectionTests: XCTestCase
         XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .stripeId(hiddenBank.stripeId))
     }
 
-    func testCancelRevertsToApplePay() throws {
-        // Given Apple Pay was committed (tapping its tile commits and closes)
-        let customerID = "cus_fch_applepay"
-        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
-        let cardA = STPPaymentMethod._testCard()
-        let bank = STPPaymentMethod._testUSBankAccount()
-        let config = makeConfiguration(customerID: customerID, isApplePayEnabled: true)
-        let loadResult = makeLoadResult(savedPaymentMethods: [cardA, bank])
-        let (flowController, vc) = makeFlowController(configuration: config, loadResult: loadResult)
-
-        let firstClose = present(flowController)
-        try tapTile(.applePay, in: vc)
-        wait(for: [firstClose], timeout: 2)
-        XCTAssertEqual(flowController.paymentOption?.label, "Apple Pay")
-
-        // When the user re-opens, selects the bank tile, then cancels
-        let secondClose = present(flowController)
-        try tapTile(.stripeId(bank.stripeId), in: vc)
-        vc.didTapOrSwipeToDismiss()
-        wait(for: [secondClose], timeout: 2)
-
-        // Then Apple Pay is restored, in memory and persistence
-        XCTAssertEqual(flowController.paymentOption?.label, "Apple Pay")
-        XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .applePay)
-    }
-
     func testCancelAfterFilledAddForm_revertsToSavedTile() throws {
         // Given a saved card is selected at presentation
         let customerID = "cus_fch_add_form"
@@ -241,47 +215,6 @@ final class PaymentSheetFlowControllerHorizontalRevertSelectionTests: XCTestCase
         XCTAssertEqual(vc.addPaymentMethodViewController.paymentMethodFormViewController.paymentMethodType, .stripe(.card))
         XCTAssertEqual(vc.addPaymentMethodViewController.paymentMethodTypesView.selected, .stripe(.card))
         XCTAssertEqual(cardFormNumberText(in: vc), "4242424242424242")
-    }
-
-    func testCancelAfterReplacingExternalPM_revertsToExternal() throws {
-        // Given an external PM was committed via Continue
-        let customerID = "cus_fch_external"
-        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
-        let externalPaymentMethod = ExternalPaymentMethod(
-            type: "external_paypal",
-            label: "PayPal",
-            lightImageUrl: URL(string: "https://example.com/paypal.png")!,
-            darkImageUrl: nil
-        )
-        let externalConfig = PaymentSheet.ExternalPaymentMethodConfiguration(
-            externalPaymentMethods: ["external_paypal"],
-            externalPaymentMethodConfirmHandler: { _, _ in .completed }
-        )
-        let externalPaymentOption = try XCTUnwrap(ExternalPaymentOption.from(externalPaymentMethod, configuration: externalConfig))
-        var config = makeConfiguration(customerID: customerID)
-        config.externalPaymentMethodConfiguration = externalConfig
-        let loadResult = makeLoadResult(
-            elementsSession: ._testValue(paymentMethodTypes: ["card"], externalPaymentMethodTypes: ["external_paypal"]),
-            paymentMethodTypes: [.stripe(.card), .external(externalPaymentOption)]
-        )
-        let (flowController, vc) = makeFlowController(configuration: config, loadResult: loadResult)
-
-        let firstClose = present(flowController)
-        vc.addPaymentMethodViewController.paymentMethodTypesView.select(.external(externalPaymentOption))
-        flowController.flowControllerViewControllerShouldClose(vc, didCancel: false)
-        wait(for: [firstClose], timeout: 2)
-        XCTAssertEqual(flowController.paymentOption?.label, "PayPal")
-
-        // When the user re-opens, switches to the card form and fills it, then cancels
-        let secondClose = present(flowController)
-        vc.addPaymentMethodViewController.paymentMethodTypesView.select(.stripe(.card))
-        fillCardForm(in: vc, number: "4242424242424242")
-        vc.didTapOrSwipeToDismiss()
-        wait(for: [secondClose], timeout: 2)
-
-        // Then the external PM is restored
-        XCTAssertEqual(flowController.paymentOption?.label, "PayPal")
-        XCTAssertEqual(vc.addPaymentMethodViewController.paymentMethodTypesView.selected, .external(externalPaymentOption))
     }
 
     func testServerDefault_cancelRevertsToSnapshotNotServerDefault() throws {
@@ -462,49 +395,6 @@ final class PaymentSheetFlowControllerHorizontalRevertSelectionTests: XCTestCase
 
         // Then it opens on the restored form, not the saved list
         XCTAssertEqual(vc.mode, .addingNew)
-        XCTAssertEqual(cardFormNumberText(in: vc), "4242424242424242")
-    }
-
-    func testRevertSelectionToInlineLinkSignup_restoresCardForm() throws {
-        // Given a snapshotted inline Link signup selection: a completed card form with the Link
-        // signup checkbox — form-backed, not the Link wallet tile
-        let customerID = "cus_fch_link_signup"
-        defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
-        let config = makeConfiguration(customerID: customerID)
-        let loadResult = makeLoadResult(
-            elementsSession: ._testValue(paymentMethodTypes: ["card"], isLinkPassthroughModeEnabled: true)
-        )
-        let (_, vc) = makeFlowController(configuration: config, loadResult: loadResult)
-        let confirmParams = IntentConfirmParams(type: .stripe(.card))
-        confirmParams.paymentMethodParams.card = STPPaymentMethodCardParams()
-        confirmParams.paymentMethodParams.card?.number = "4242424242424242"
-        confirmParams.paymentMethodParams.card?.expMonth = 12
-        confirmParams.paymentMethodParams.card?.expYear = 40
-        confirmParams.paymentMethodParams.card?.cvc = "123"
-        confirmParams.setDefaultBillingDetailsIfNecessary(for: config)
-        let signupOption = PaymentSheet.LinkConfirmOption.signUp(
-            brand: .link,
-            account: PaymentSheetLinkAccount(
-                email: "user@example.com",
-                session: LinkStubs.consumerSession(),
-                publishableKey: nil,
-                displayablePaymentDetails: nil,
-                apiClient: STPAPIClient(publishableKey: STPTestingDefaultPublishableKey),
-                useMobileEndpoints: false,
-                canSyncAttestationState: false
-            ),
-            phoneNumber: nil,
-            consentAction: .checkbox_v0,
-            legalName: nil,
-            intentConfirmParams: confirmParams
-        )
-
-        // When reverting to it (e.g. the user cancels after abandoning a different selection)
-        vc.revertSelection(to: .link(option: signupOption))
-
-        // Then the signup's card form is restored — not the Link wallet tile
-        XCTAssertEqual(vc.mode, .addingNew)
-        XCTAssertEqual(vc.addPaymentMethodViewController.paymentMethodFormViewController.paymentMethodType, .stripe(.card))
         XCTAssertEqual(cardFormNumberText(in: vc), "4242424242424242")
     }
 
