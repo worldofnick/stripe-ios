@@ -711,6 +711,33 @@ class PaymentSheetVerticalViewController: UIViewController, FlowControllerViewCo
         updatePrimaryButton()
     }
 
+    func revertSelection(to paymentOption: PaymentOption?) {
+        view.endEditing(true)
+        isLinkWalletButtonSelected = false
+        isRecollectingCVC = false
+        cvcRecollectionViewController = nil
+        if case .link(let confirmOption) = paymentOption {
+            linkConfirmOption = confirmOption
+        } else {
+            linkConfirmOption = nil
+        }
+        // Reuse the `previousPaymentOption` restore machinery (also used by FlowController's `update()`)
+        // to rebuild the UI with the reverted selection. `regenerateUI` preserves the form cache, so
+        // in-progress form input survives the revert.
+        previousPaymentOption = paymentOption
+        regenerateUI()
+        previousPaymentOption = nil
+        if paymentOption == nil {
+            // Without a previous payment option, calculateInitialSelection falls back to the list's
+            // current selection; explicitly clear it
+            clearSelection()
+        }
+        // Unless the revert redisplayed a form (which sets its own back style), show the close button
+        if let paymentMethodListViewController, children.contains(paymentMethodListViewController) {
+            navigationBar.setStyle(.close(showAdditionalButton: false))
+        }
+    }
+
     @objc func didTapPrimaryButton() {
         // If the form has overridden the primary buy button, hand control over to the form
         guard paymentMethodFormViewController?.overridePrimaryButtonState == nil else {

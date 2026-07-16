@@ -269,6 +269,8 @@ extension PaymentSheet {
 
         private var presentPaymentOptionsCompletionWithResult: ((Bool) -> Void)?
         private var didDismissLinkVerificationDialog: Bool = false
+        /// The selection state when the payment options sheet was presented, restored if the user cancels the sheet.
+        private var selectionSnapshotAtPresentation: SelectionSnapshot?
 
         // If a WalletButtonsView is currently visible
         var walletButtonsViewState: WalletButtonsViewState = .hidden {
@@ -539,6 +541,9 @@ extension PaymentSheet {
                 return
             }
 
+            // Snapshot the current selection so we can revert to it if the user cancels the sheet
+            selectionSnapshotAtPresentation = .capture(paymentOption: internalPaymentOption, customerID: configuration.customer?.id)
+
             let showPaymentOptions: () -> Void = { [weak self] in
                 guard let self = self else { return }
 
@@ -638,6 +643,8 @@ extension PaymentSheet {
                         // The Link row was selected before we launched the Link flow, but the user decided to drop out
                         // of the Link flow. We clear the selection to avoid having Link stay selected.
                         self.viewController.clearSelection()
+                        // Don't resurrect the cleared Link selection if the user then cancels the sheet
+                        self.selectionSnapshotAtPresentation = self.selectionSnapshotAtPresentation?.clearingPaymentOption
                     }
                     self.updatePaymentOption()
                     returnToPaymentSheet()
@@ -1015,6 +1022,19 @@ extension PaymentSheet.FlowController: FlowControllerViewControllerDelegate {
         if !didCancel {
             self.didPresentAndContinue = true
         }
+        if didCancel, let snapshot = selectionSnapshotAtPresentation {
+            // Revert the selection (and the locally persisted default) to their values at presentation time.
+            // If the snapshotted saved PM was deleted while the sheet was up, keep the sheet's own
+            // post-deletion selection instead.
+            snapshot.restoreLocalPersistence(
+                customerID: configuration.customer?.id,
+                savedPaymentMethods: flowControllerViewController.savedPaymentMethods
+            )
+            if snapshot.isPaymentOptionValid(savedPaymentMethods: flowControllerViewController.savedPaymentMethods) {
+                flowControllerViewController.revertSelection(to: snapshot.paymentOption)
+            }
+        }
+        selectionSnapshotAtPresentation = nil
         flowControllerViewController.dismiss(animated: true) {
             self.presentPaymentOptionsCompletionWithResult?(didCancel)
             self.updatePaymentOption()
@@ -1077,6 +1097,9 @@ internal protocol FlowControllerViewControllerProtocol: BottomSheetContentViewCo
     var selectedPaymentMethodType: PaymentSheet.PaymentMethodType? { get }
     var flowControllerDelegate: FlowControllerViewControllerDelegate? { get set }
     func clearSelection()
+    /// Reverts the current selection to the given payment option, e.g. when the user cancels the sheet
+    /// after changing their selection. Passing nil clears the selection.
+    func revertSelection(to paymentOption: PaymentOption?)
 }
 
 extension PaymentOption {

@@ -459,6 +459,35 @@ class PaymentSheetFlowControllerViewController: UIViewController, FlowController
         updateButton()
     }
 
+    func revertSelection(to paymentOption: PaymentOption?) {
+        isHackyLinkButtonSelected = false
+        switch paymentOption {
+        case .applePay, .link, .saved:
+            linkConfirmOption = {
+                if case .link(let option) = paymentOption {
+                    return option
+                }
+                return nil
+            }()
+            mode = .selectingSaved
+            // The saved PM carousel derives its selection from the (already restored) persisted default
+            savedPaymentOptionsViewController.refreshSelectionFromStorage()
+        case .new, .external:
+            // The add screen retains the previously completed form. Note: if the user edited that same
+            // form before cancelling, the edited input is kept rather than the exact snapshot (same
+            // limitation as EmbeddedPaymentElement, see MOBILESDK-3361).
+            linkConfirmOption = nil
+            mode = .addingNew
+        case nil:
+            linkConfirmOption = nil
+            mode = savedPaymentOptionsViewController.hasOptionsExcludingAdd ? .selectingSaved : .addingNew
+            clearSelection()
+        }
+        if isViewLoaded {
+            updateUI()
+        }
+    }
+
     @objc
     private func didTapContinueButton() {
         // The user is continuing with an LPM, so we un-select Link

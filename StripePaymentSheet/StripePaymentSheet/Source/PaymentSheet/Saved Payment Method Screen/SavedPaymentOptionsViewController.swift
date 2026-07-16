@@ -477,6 +477,13 @@ class SavedPaymentOptionsViewController: UIViewController {
         }
     }
 
+    /// Recomputes the selected item from the persisted default (`CustomerPaymentOption`) and the current
+    /// saved payment methods, e.g. after the persisted default was restored on cancel. Does not fire
+    /// `didUpdateSelection`.
+    func refreshSelectionFromStorage() {
+        updateUI()
+    }
+
     func unselectPaymentMethod() {
         guard let selectedIndexPath = selectedIndexPath else {
             return
