@@ -185,6 +185,34 @@ final class EmbeddedPaymentElementRevertSelectionTests: XCTestCase {
         XCTAssertEqual(restoredForm.getTextFieldElement("Card number")?.text, "4242424242424242")
     }
 
+    func testSameRowFormCancel_afterEditingConfirmationOnlyFields_restoresCommittedInput() throws {
+        // Given a completed card form was committed via Continue
+        let config = makeConfiguration()
+        let loadResult = makeLoadResult()
+        let sut = makeEmbeddedPaymentElement(configuration: config, loadResult: loadResult)
+        sut.embeddedPaymentMethodsView.didTap(rowButton: sut.embeddedPaymentMethodsView.getRowButton(accessibilityIdentifier: "Card"))
+        try fillCardForm(in: sut, number: "4242424242424242")
+        try XCTUnwrap(sut.selectedFormViewController).didTapPrimaryButton()
+        XCTAssertEqual(sut.paymentOption?.label, "•••• 4242")
+
+        // When the user re-opens the same row's form and edits only confirmation-only fields —
+        // valid changes that don't alter the displayed payment option — then cancels
+        sut.embeddedPaymentMethodsView.didTap(rowButton: sut.embeddedPaymentMethodsView.getRowButton(accessibilityIdentifier: "Card"))
+        let editedForm = try XCTUnwrap(sut.formCache[.stripe(.card)])
+        editedForm.getTextFieldElement("CVC")?.setText("999")
+        editedForm.getTextFieldElement("MM / YY")?.setText("1141")
+        sut.embeddedFormViewControllerDidCancel(try XCTUnwrap(sut.selectedFormViewController))
+
+        // Then the committed input is restored — a later confirmation must not use the edits
+        guard case .new(let confirmParams) = try XCTUnwrap(sut.selectedFormViewController).selectedPaymentOption else {
+            return XCTFail("Expected the committed card to back the selection after cancel")
+        }
+        XCTAssertEqual(confirmParams.paymentMethodParams.card?.cvc, "123")
+        XCTAssertEqual(confirmParams.paymentMethodParams.card?.expMonth, 12)
+        let restoredForm = try XCTUnwrap(sut.formCache[.stripe(.card)])
+        XCTAssertEqual(restoredForm.getTextFieldElement("CVC")?.text, "123")
+    }
+
     func testSameRowFormCancel_externalPM_restoresBillingDetails() throws {
         // Given an external PM with collected billing details was committed via Continue
         let externalPaymentMethod = ExternalPaymentMethod(
