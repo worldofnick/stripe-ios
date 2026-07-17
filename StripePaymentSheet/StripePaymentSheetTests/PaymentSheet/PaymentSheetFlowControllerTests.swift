@@ -468,7 +468,7 @@ class PaymentSheetFlowControllerTests: XCTestCase {
         XCTAssertEqual(displayData.labels.sublabel, "My Checking •••• 6789")
     }
 
-    // MARK: - Enhanced Completion Block Tests
+    // MARK: - Selection restoration
 
     @MainActor
     func testCancelingPaymentOptionsRestoresPreviousSavedPaymentMethod() {
@@ -545,7 +545,7 @@ class PaymentSheetFlowControllerTests: XCTestCase {
             completionExpectation.fulfill()
         }
 
-        // When the persisted selection changes while the sheet is open
+        // When persistence changes while the horizontal sheet is open and the sheet is canceled
         CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(secondPaymentMethod.stripeId), forCustomer: nil)
         flowController.updateForWalletButtonsView()
         XCTAssertEqual(savedPaymentMethodID(flowController.viewController.selectedPaymentOption), secondPaymentMethod.stripeId)
@@ -599,6 +599,86 @@ class PaymentSheetFlowControllerTests: XCTestCase {
         guard case .applePay = restoredViewController.selectedPaymentOption else {
             return XCTFail("Expected Apple Pay to be restored")
         }
+    }
+
+    @MainActor
+    func testCancelingExternalPaymentMethodRestoresBillingDetails() throws {
+        let externalPaymentMethod = ExternalPaymentMethod(
+            type: "external_paypal",
+            label: "PayPal",
+            lightImageUrl: URL(string: "https://example.com/paypal.png")!,
+            darkImageUrl: nil
+        )
+        let externalConfiguration = PaymentSheet.ExternalPaymentMethodConfiguration(
+            externalPaymentMethods: ["external_paypal"],
+            externalPaymentMethodConfirmHandler: { _, _ in .completed }
+        )
+        let externalPaymentOption = try XCTUnwrap(
+            ExternalPaymentOption.from(externalPaymentMethod, configuration: externalConfiguration)
+        )
+        var configuration = PaymentSheet.Configuration._testValue_MostPermissive(isApplePayEnabled: false)
+        configuration.externalPaymentMethodConfiguration = externalConfiguration
+        configuration.billingDetailsCollectionConfiguration.name = .always
+        let loadResult = PaymentSheetLoader.LoadResult(
+            intent: ._testPaymentIntent(paymentMethodTypes: [.card]),
+            elementsSession: ._testValue(
+                paymentMethodTypes: ["card"],
+                externalPaymentMethodTypes: ["external_paypal"]
+            ),
+            savedPaymentMethods: [],
+            paymentMethodTypes: [.stripe(.card), .external(externalPaymentOption)],
+            paymentMethodMessagingPromotionsHelper: ._testValue(),
+            paymentMethodOrientation: .vertical
+        )
+        let flowController = PaymentSheet.FlowController(
+            configuration: configuration,
+            loadResult: loadResult,
+            analyticsHelper: ._testValue()
+        )
+        let viewController = flowController.viewController as! PaymentSheetVerticalViewController
+        viewController.loadViewIfNeeded()
+
+        // Given PayPal with collected billing details is committed
+        let committed = expectation(description: "Payment options committed")
+        flowController.presentPaymentOptions(from: UIViewController()) { didCancel in
+            XCTAssertFalse(didCancel)
+            committed.fulfill()
+        }
+        let row = try XCTUnwrap(
+            viewController.paymentMethodListViewController?.rowButtons.first(where: {
+                $0.type == .new(paymentMethodType: .external(externalPaymentOption))
+            })
+        )
+        viewController.paymentMethodListViewController?.didTap(
+            rowButton: row,
+            selection: row.type
+        )
+        let form = try XCTUnwrap(viewController.formCache[.external(externalPaymentOption)])
+        form.getTextFieldElement("Full name")?.setText("Jane Doe")
+        flowController.flowControllerViewControllerShouldClose(viewController, didCancel: false)
+        wait(for: [committed], timeout: 2)
+
+        // When the customer backs out of the form and cancels
+        let canceled = expectation(description: "Payment options canceled")
+        flowController.presentPaymentOptions(from: UIViewController()) { didCancel in
+            XCTAssertTrue(didCancel)
+            canceled.fulfill()
+        }
+        let presentedViewController = flowController.viewController as! PaymentSheetVerticalViewController
+        presentedViewController.sheetNavigationBarDidBack(presentedViewController.navigationBar)
+        presentedViewController.didTapOrSwipeToDismiss()
+        wait(for: [canceled], timeout: 2)
+
+        // Then PayPal is restored with its committed billing details
+        let restoredViewController = flowController.viewController as! PaymentSheetVerticalViewController
+        guard case .external(_, let billingDetails) = restoredViewController.selectedPaymentOption else {
+            return XCTFail("Expected PayPal to be restored")
+        }
+        XCTAssertEqual(billingDetails.name, "Jane Doe")
+        XCTAssertEqual(
+            restoredViewController.paymentMethodFormViewController?.paymentMethodType,
+            .external(externalPaymentOption)
+        )
     }
 
     @MainActor

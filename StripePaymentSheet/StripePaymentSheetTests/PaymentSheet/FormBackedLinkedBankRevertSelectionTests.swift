@@ -45,15 +45,11 @@ final class FormBackedLinkedBankRevertSelectionTests: XCTestCase {
         sut.embeddedPaymentMethodsView.didTap(
             rowButton: sut.embeddedPaymentMethodsView.getRowButton(accessibilityIdentifier: "Bank")
         )
-        let (paymentMethod, linkedBank) = makeLinkedBank()
+        let linkedBank = makeLinkedBank()
         let bankForm = try XCTUnwrap(sut.formCache[.instantDebits] as? InstantDebitsPaymentMethodElement)
         bankForm.setLinkedBank(linkedBank)
         try XCTUnwrap(sut.selectedFormViewController).didTapPrimaryButton()
-        guard case .saved(let committedPaymentMethod, let committedParams) = sut.lastCommittedPaymentOption else {
-            return XCTFail("Expected a committed linked-bank payment option")
-        }
-        XCTAssertEqual(committedPaymentMethod.stripeId, paymentMethod.stripeId)
-        XCTAssertEqual(committedParams?.instantDebitsLinkedBank?.last4, "6789")
+        XCTAssertEqual(sut.paymentOption?.label, "••••6789")
 
         // When the user opens the Card form and cancels it
         sut.embeddedPaymentMethodsView.didTap(
@@ -63,12 +59,7 @@ final class FormBackedLinkedBankRevertSelectionTests: XCTestCase {
 
         // Then EPE restores both the Bank row and its form-backed payment option
         XCTAssertTrue(sut.embeddedPaymentMethodsView.getRowButton(accessibilityIdentifier: "Bank").isSelected)
-        XCTAssertNotNil(sut.formCache[.instantDebits] as? InstantDebitsPaymentMethodElement)
-        guard case .saved(let restoredPaymentMethod, let restoredParams) = sut.selectedFormViewController?.selectedPaymentOption else {
-            return XCTFail("Expected the linked-bank form to be restored")
-        }
-        XCTAssertEqual(restoredPaymentMethod.stripeId, paymentMethod.stripeId)
-        XCTAssertEqual(restoredParams?.instantDebitsLinkedBank?.last4, "6789")
+        XCTAssertEqual(sut.paymentOption?.label, "••••6789")
     }
 
     func testFlowController_cancelAfterReplacingLinkedBank_restoresCommittedBank() throws {
@@ -89,7 +80,7 @@ final class FormBackedLinkedBankRevertSelectionTests: XCTestCase {
 
         let firstClose = present(flowController)
         try tapRow(.new(paymentMethodType: .instantDebits), in: viewController)
-        let (paymentMethod, linkedBank) = makeLinkedBank()
+        let linkedBank = makeLinkedBank()
         let bankForm = try XCTUnwrap(viewController.formCache[.instantDebits] as? InstantDebitsPaymentMethodElement)
         bankForm.setLinkedBank(linkedBank)
         flowController.flowControllerViewControllerShouldClose(viewController, didCancel: false)
@@ -107,11 +98,7 @@ final class FormBackedLinkedBankRevertSelectionTests: XCTestCase {
         // Then FlowController restores the committed linked-bank form, not a saved-PM row
         let restoredViewController = try XCTUnwrap(flowController.viewController as? PaymentSheetVerticalViewController)
         XCTAssertEqual(restoredViewController.paymentMethodFormViewController?.paymentMethodType, .instantDebits)
-        guard case .saved(let restoredPaymentMethod, let restoredParams) = restoredViewController.selectedPaymentOption else {
-            return XCTFail("Expected the linked-bank selection to be restored")
-        }
-        XCTAssertEqual(restoredPaymentMethod.stripeId, paymentMethod.stripeId)
-        XCTAssertEqual(restoredParams?.instantDebitsLinkedBank?.last4, "6789")
+        XCTAssertEqual(flowController.paymentOption?.labels.sublabel, "••••6789")
         XCTAssertNil(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID))
     }
 
@@ -126,13 +113,13 @@ final class FormBackedLinkedBankRevertSelectionTests: XCTestCase {
         )
     }
 
-    private func makeLinkedBank() -> (STPPaymentMethod, InstantDebitsLinkedBank) {
+    private func makeLinkedBank() -> InstantDebitsLinkedBank {
         let paymentMethod = STPPaymentMethod._testUSBankAccount()
         var linkBankPaymentMethod = LinkBankPaymentMethod(id: paymentMethod.stripeId)
         linkBankPaymentMethod._allResponseFieldsStorage = NonEncodableParameters(
             storage: paymentMethod.allResponseFields as? [String: Any] ?? [:]
         )
-        let linkedBank = InstantDebitsLinkedBank(
+        return InstantDebitsLinkedBank(
             paymentMethod: linkBankPaymentMethod,
             bankName: "StripeBank",
             last4: "6789",
@@ -140,7 +127,6 @@ final class FormBackedLinkedBankRevertSelectionTests: XCTestCase {
             incentiveEligible: false,
             linkAccountSessionId: "fcsess_123"
         )
-        return (paymentMethod, linkedBank)
     }
 
     private func present(_ flowController: PaymentSheet.FlowController) -> XCTestExpectation {

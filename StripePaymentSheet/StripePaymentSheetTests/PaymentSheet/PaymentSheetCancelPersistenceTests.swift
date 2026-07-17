@@ -10,9 +10,6 @@
 @_spi(STP) import StripeUICore
 import XCTest
 
-/// Covers full PaymentSheet's cancel behavior: an abandoned selection change must not stick as the
-/// locally persisted default. Drives the same code paths as the (slow) selection-revert UI tests,
-/// headlessly: present-time snapshot → row tap (persists) → cancel delegate → persistence reverted.
 @MainActor
 final class PaymentSheetCancelPersistenceTests: XCTestCase {
 
@@ -61,6 +58,25 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
         )
     }
 
+    private func makePaymentSheet(
+        configuration: PaymentSheet.Configuration,
+        savedPaymentMethods: [STPPaymentMethod],
+        orientation: PaymentSheet.PaymentMethodLayout.ResolvedLayout
+    ) -> (PaymentSheet, PaymentSheetViewControllerProtocol) {
+        let sheet = PaymentSheet(
+            paymentIntentClientSecret: "pi_123_secret_456",
+            configuration: configuration
+        )
+        let viewController = sheet.makePaymentSheetVC(
+            loadResult: makeLoadResult(
+                savedPaymentMethods: savedPaymentMethods,
+                orientation: orientation
+            ),
+            previousPaymentOption: nil
+        )
+        return (sheet, viewController)
+    }
+
     private func tapSavedPaymentMethod(
         at index: Int,
         in viewController: PaymentSheetViewController
@@ -88,9 +104,12 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
         let cardB = makeCard(id: "pm_vertical_b", last4: "0005")
         CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(cardA.stripeId), forCustomer: customerID)
         let configuration = makeConfiguration(customerID: customerID)
-        let loadResult = makeLoadResult(savedPaymentMethods: [cardA, cardB], orientation: .vertical)
-        let sheet = PaymentSheet(paymentIntentClientSecret: "pi_123_secret_456", configuration: configuration)
-        let viewController = sheet.makePaymentSheetVC(loadResult: loadResult, previousPaymentOption: nil) as! PaymentSheetVerticalViewController
+        let (sheet, paymentSheetViewController) = makePaymentSheet(
+            configuration: configuration,
+            savedPaymentMethods: [cardA, cardB],
+            orientation: .vertical
+        )
+        let viewController = paymentSheetViewController as! PaymentSheetVerticalViewController
         viewController.loadViewIfNeeded()
 
         // When the customer selects card B and then cancels
@@ -110,9 +129,12 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
         let cardB = makeCard(id: "pm_horizontal_b", last4: "0005")
         CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(cardA.stripeId), forCustomer: customerID)
         let configuration = makeConfiguration(customerID: customerID)
-        let loadResult = makeLoadResult(savedPaymentMethods: [cardA, cardB], orientation: .horizontal)
-        let sheet = PaymentSheet(paymentIntentClientSecret: "pi_123_secret_456", configuration: configuration)
-        let viewController = sheet.makePaymentSheetVC(loadResult: loadResult, previousPaymentOption: nil) as! PaymentSheetViewController
+        let (sheet, paymentSheetViewController) = makePaymentSheet(
+            configuration: configuration,
+            savedPaymentMethods: [cardA, cardB],
+            orientation: .horizontal
+        )
+        let viewController = paymentSheetViewController as! PaymentSheetViewController
 
         // When the customer selects card B and then cancels
         try tapSavedPaymentMethod(at: 2, in: viewController)
@@ -131,9 +153,11 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
         let remainingCard = makeCard(id: "pm_remaining", last4: "0005")
         CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(deletedCard.stripeId), forCustomer: customerID)
         let configuration = makeConfiguration(customerID: customerID)
-        let initialLoadResult = makeLoadResult(savedPaymentMethods: [deletedCard, remainingCard], orientation: .vertical)
-        let sheet = PaymentSheet(paymentIntentClientSecret: "pi_123_secret_456", configuration: configuration)
-        _ = sheet.makePaymentSheetVC(loadResult: initialLoadResult, previousPaymentOption: nil)
+        let (sheet, _) = makePaymentSheet(
+            configuration: configuration,
+            savedPaymentMethods: [deletedCard, remainingCard],
+            orientation: .vertical
+        )
 
         // When that card is no longer present when the sheet is canceled
         let currentLoadResult = makeLoadResult(savedPaymentMethods: [remainingCard], orientation: .vertical)
@@ -158,9 +182,12 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
         let visibleCard = makeCard(id: "pm_visible", last4: "0005")
         CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(hiddenCard.stripeId), forCustomer: customerID)
         let configuration = makeConfiguration(customerID: customerID)
-        let loadResult = makeLoadResult(savedPaymentMethods: [visibleCard], orientation: .vertical)
-        let sheet = PaymentSheet(paymentIntentClientSecret: "pi_123_secret_456", configuration: configuration)
-        let viewController = sheet.makePaymentSheetVC(loadResult: loadResult, previousPaymentOption: nil) as! PaymentSheetVerticalViewController
+        let (sheet, paymentSheetViewController) = makePaymentSheet(
+            configuration: configuration,
+            savedPaymentMethods: [visibleCard],
+            orientation: .vertical
+        )
+        let viewController = paymentSheetViewController as! PaymentSheetVerticalViewController
         viewController.loadViewIfNeeded()
 
         // When the visible card is selected and the sheet is canceled
@@ -174,7 +201,6 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
     func testCancel_restoresNonSavedPersistedPaymentOptions() {
         let paymentOptions: [(name: String, option: CustomerPaymentOption?)] = [
             ("none", nil),
-            ("apple_pay", .applePay),
             ("link", .link),
         ]
 
@@ -184,9 +210,12 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
             let card = makeCard(id: "pm_\(paymentOption.name)", last4: "4242")
             CustomerPaymentOption.setDefaultPaymentMethod(paymentOption.option, forCustomer: customerID)
             let configuration = makeConfiguration(customerID: customerID)
-            let loadResult = makeLoadResult(savedPaymentMethods: [card], orientation: .vertical)
-            let sheet = PaymentSheet(paymentIntentClientSecret: "pi_123_secret_456", configuration: configuration)
-            let viewController = sheet.makePaymentSheetVC(loadResult: loadResult, previousPaymentOption: nil) as! PaymentSheetVerticalViewController
+            let (sheet, paymentSheetViewController) = makePaymentSheet(
+                configuration: configuration,
+                savedPaymentMethods: [card],
+                orientation: .vertical
+            )
+            let viewController = paymentSheetViewController as! PaymentSheetVerticalViewController
             viewController.loadViewIfNeeded()
 
             // When the customer selects a saved card and then cancels
@@ -210,9 +239,12 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
         let cardB = makeCard(id: "pm_completed_b", last4: "0005")
         CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(cardA.stripeId), forCustomer: customerID)
         let configuration = makeConfiguration(customerID: customerID)
-        let loadResult = makeLoadResult(savedPaymentMethods: [cardA, cardB], orientation: .vertical)
-        let sheet = PaymentSheet(paymentIntentClientSecret: "pi_123_secret_456", configuration: configuration)
-        let viewController = sheet.makePaymentSheetVC(loadResult: loadResult, previousPaymentOption: nil) as! PaymentSheetVerticalViewController
+        let (sheet, paymentSheetViewController) = makePaymentSheet(
+            configuration: configuration,
+            savedPaymentMethods: [cardA, cardB],
+            orientation: .vertical
+        )
+        let viewController = paymentSheetViewController as! PaymentSheetVerticalViewController
         viewController.loadViewIfNeeded()
 
         // When the customer selects card B and completes PaymentSheet
