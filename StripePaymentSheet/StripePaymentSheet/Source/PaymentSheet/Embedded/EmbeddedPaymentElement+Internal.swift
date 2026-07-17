@@ -430,13 +430,13 @@ extension EmbeddedPaymentElement: EmbeddedFormViewControllerDelegate {
 
         if lastSelection == currentlySelectedType,
            lastUpdatedPaymentOption != paymentOption {
-            if case let .new(confirmParams) = lastCommittedPaymentOption,
-               case let .new(paymentMethodType) = currentlySelectedType,
+            if case let .new(paymentMethodType) = currentlySelectedType,
+               let confirmParams = lastCommittedPaymentOption?.newConfirmParams,
                confirmParams.paymentMethodType == paymentMethodType {
                 formCache[paymentMethodType] = nil
                 selectedFormViewController = Self.makeFormViewControllerIfNecessary(
                     selection: currentlySelectedType,
-                    previousPaymentOption: lastCommittedPaymentOption,
+                    previousPaymentOption: .new(confirmParams: confirmParams),
                     configuration: configuration,
                     intent: intent,
                     elementsSession: elementsSession,
