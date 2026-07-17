@@ -558,7 +558,7 @@ class PaymentSheetFlowControllerTests: XCTestCase {
     }
 
     @MainActor
-    func testHorizontalPreviousApplePaySelectionOverridesServerDefault() {
+    func testHorizontalRestoredApplePaySelectionOverridesServerDefault() {
         // Given a horizontal FlowController where the server default is a saved bank account
         let customerID = "cus_horizontal_server_default"
         let bank = STPPaymentMethod._testUSBankAccount()
@@ -592,8 +592,7 @@ class PaymentSheetFlowControllerTests: XCTestCase {
             configuration: configuration,
             loadResult: loadResult,
             analyticsHelper: ._testValue(),
-            previousPaymentOption: .applePay,
-            paymentOptionToRestore: .applePay
+            restoredPaymentOption: .applePay
         )
 
         // Then the explicit previous selection takes precedence over the server default
@@ -628,6 +627,31 @@ class PaymentSheetFlowControllerTests: XCTestCase {
         // Then the deleted method is not restored
         XCTAssertEqual(flowController.viewController.savedPaymentMethods.map(\.stripeId), [remainingPaymentMethod.stripeId])
         XCTAssertNotEqual(savedPaymentMethodID(flowController.viewController.selectedPaymentOption), deletedPaymentMethod.stripeId)
+        XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: nil), .stripeId(remainingPaymentMethod.stripeId))
+    }
+
+    @MainActor
+    func testCancelingPaymentOptionsPreservesPersistedDefaultFilteredOutOfSheet() {
+        // Given the persisted method still exists for the customer but is filtered out of this sheet
+        let hiddenPaymentMethod = STPPaymentMethod._testUSBankAccount()
+        let visiblePaymentMethod = makeCardPaymentMethod(id: "pm_visible", last4: "4242", brand: "visa")
+        CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(hiddenPaymentMethod.stripeId), forCustomer: nil)
+        let flowController = makeFlowController(savedPaymentMethods: [visiblePaymentMethod])
+        let completionExpectation = expectation(description: "Payment options dismissed")
+        flowController.presentPaymentOptions(from: UIViewController()) { didCancel in
+            XCTAssertTrue(didCancel)
+            completionExpectation.fulfill()
+        }
+
+        // When the sheet is canceled without deleting that hidden method
+        flowController.flowControllerViewControllerShouldClose(flowController.viewController, didCancel: true)
+        wait(for: [completionExpectation], timeout: 2)
+
+        // Then cancellation preserves the filtered persisted default
+        XCTAssertEqual(
+            CustomerPaymentOption.localDefaultPaymentMethod(for: nil),
+            .stripeId(hiddenPaymentMethod.stripeId)
+        )
     }
 
     func testPresentPaymentOptions_EnhancedCompletion_BothMethodsExist() {
