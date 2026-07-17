@@ -179,6 +179,8 @@ class PaymentMethodFormViewController: UIViewController {
             let delegate = addressSection.delegate
             addressSection.delegate = nil  // Stop didUpdate delegate calls to avoid laying out while we're being presented
             if let newShippingAddress = configuration.shippingDetails()?.address {
+                // Show all address fields so the latest shipping address can be populated.
+                addressSection.fieldsToCollect = .all
                 addressSection.autocompleteStyle = .expanded()
                 addressSection.updateBillingSameAsShippingDefaultAddress(.init(newShippingAddress))
             } else {

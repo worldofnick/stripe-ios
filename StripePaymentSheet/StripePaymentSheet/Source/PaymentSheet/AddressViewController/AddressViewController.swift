@@ -422,7 +422,7 @@ extension AddressViewController {
         if let addressSection = addressSection,
            case .compact = addressSection.autocompleteStyle,
            !configuration.autocompleteCountries.caseInsensitiveContains(addressSection.selectedCountryCode) {
-            addressSection.autocompleteStyle = .expanded(autocompleteCountries: configuration.autocompleteCountries)
+            addressSection.autocompleteStyle = .expanded(supportedCountries: configuration.autocompleteCountries)
         }
     }
 
@@ -437,8 +437,8 @@ extension AddressViewController {
             addressSpecProvider: addressSpecProvider,
             defaults: .init(from: defaultValues),
             autocompleteStyle: showFullForm
-                ? .expanded(autocompleteCountries: configuration.autocompleteCountries)
-                : .compact(autocompleteCountries: configuration.autocompleteCountries),
+                ? .expanded(supportedCountries: configuration.autocompleteCountries)
+                : .compact(supportedCountries: configuration.autocompleteCountries),
             additionalFields: .init(from: configuration.additionalFields),
             theme: configuration.appearance.asElementsTheme,
             presentAutoComplete: { [weak self] in
@@ -538,7 +538,7 @@ extension AddressViewController: AutoCompleteViewControllerDelegate {
     func didSelectManualEntry(_ line1: String) {
         guard let addressSection = addressSection else { assertionFailure(); return }
         navigationController?.popViewController(animated: true)
-        addressSection.autocompleteStyle = .expanded(autocompleteCountries: configuration.autocompleteCountries)
+        addressSection.autocompleteStyle = .expanded(supportedCountries: configuration.autocompleteCountries)
         addressSection.line1?.setText(line1)
     }
 
@@ -546,7 +546,7 @@ extension AddressViewController: AutoCompleteViewControllerDelegate {
         guard let addressSection = addressSection else { assertionFailure(); return }
         navigationController?.popViewController(animated: true)
         // Disable auto complete after address is selected
-        addressSection.autocompleteStyle = .expanded(autocompleteCountries: configuration.autocompleteCountries)
+        addressSection.autocompleteStyle = .expanded(supportedCountries: configuration.autocompleteCountries)
         guard let address = address else {
             return
         }

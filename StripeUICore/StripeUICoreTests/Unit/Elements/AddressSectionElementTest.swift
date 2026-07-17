@@ -137,7 +137,7 @@ class AddressSectionElementTest: XCTestCase {
             countries: ["US"],
             locale: locale_enUS,
             addressSpecProvider: dummyAddressSpecProvider,
-            autocompleteStyle: .compact(autocompleteCountries: ["US"])
+            autocompleteStyle: .compact(supportedCountries: ["US"])
         )
 
         XCTAssertNotNil(sut.autoCompleteLine)
@@ -168,12 +168,12 @@ class AddressSectionElementTest: XCTestCase {
             countries: ["US"],
             locale: locale_enUS,
             addressSpecProvider: dummyAddressSpecProvider,
-            autocompleteStyle: .expanded(autocompleteCountries: ["CA"])
+            autocompleteStyle: .expanded(supportedCountries: ["CA"])
         )
 
         XCTAssertLine1DoesNotHaveAutocompleteAccessory(sut)
 
-        sut.autocompleteStyle = .expanded(autocompleteCountries: ["US"])
+        sut.autocompleteStyle = .expanded(supportedCountries: ["US"])
 
         XCTAssertLine1HasAutocompleteAccessory(sut)
     }
@@ -229,7 +229,7 @@ class AddressSectionElementTest: XCTestCase {
 
     func testAutocompleteStyleIsIgnoredUnlessCollectingAllFields() {
         let fieldsToCollect: [AddressSectionElement.FieldsToCollect] = [.country, .countryAndPostal()]
-        let autocompleteStyles: [AddressSectionElement.AutocompleteStyle] = [.compact(), .expanded()]
+        let autocompleteStyles: [AddressSectionElement.AutocompleteStyle] = [.none, .compact(), .expanded()]
 
         for fields in fieldsToCollect {
             for style in autocompleteStyles {
@@ -247,6 +247,11 @@ class AddressSectionElementTest: XCTestCase {
                 XCTAssertNil(sut.line2)
                 XCTAssertNil(sut.city)
                 XCTAssertNil(sut.state)
+                if fields == .country {
+                    XCTAssertNil(sut.postalCode)
+                } else {
+                    XCTAssertNotNil(sut.postalCode)
+                }
             }
         }
     }

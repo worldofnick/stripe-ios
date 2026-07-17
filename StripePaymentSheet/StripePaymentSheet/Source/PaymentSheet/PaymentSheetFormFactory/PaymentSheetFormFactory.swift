@@ -516,9 +516,9 @@ extension PaymentSheetFormFactory {
             let hasDefaultAddressValues = defaultBillingDetails().address != .init() || (configuration.shippingDetails() != nil && displayBillingSameAsShippingCheckbox)
             if hasDefaultAddressValues {
                 switch autocompleteStyle {
-                case .compact(let autocompleteCountries):
+                case .compact(let supportedCountries):
                     // Preserve any autocomplete country restrictions while expanding so default values are visible.
-                    return .expanded(autocompleteCountries: autocompleteCountries)
+                    return .expanded(supportedCountries: supportedCountries)
                 default:
                     return autocompleteStyle
                 }

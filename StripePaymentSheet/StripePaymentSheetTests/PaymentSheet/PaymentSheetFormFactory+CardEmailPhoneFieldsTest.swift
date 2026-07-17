@@ -376,6 +376,27 @@ class PaymentSheetFormFactoryCardEmailPhoneFieldsTest: XCTestCase {
         XCTAssertEqual(params?.paymentMethodParams.billingDetails?.phone, "+17777777777")
     }
 
+    func testMakeBillingAddressSectionExpandsCompactAutocompleteAndPreservesSupportedCountries() {
+        var configuration = PaymentSheet.Configuration()
+        configuration.defaultBillingDetails.address = .init(country: "US", line1: "510 Townsend St.")
+        let factory = PaymentSheetFormFactory(
+            intent: ._testValue(),
+            elementsSession: ._testCardValue(),
+            configuration: .paymentElement(configuration),
+            paymentMethod: .stripe(.card),
+            addressSpecProvider: dummyAddressSpecProvider
+        )
+
+        let billingAddressSection = factory.makeBillingAddressSection(
+            autocompleteStyle: .compact(supportedCountries: ["CA"])
+        )
+
+        XCTAssertEqual(
+            billingAddressSection.element.autocompleteStyle,
+            .expanded(supportedCountries: ["CA"])
+        )
+    }
+
     func testMakeBillingAddressSectionWithoutEmailAndPhone() {
         let factory = PaymentSheetFormFactory(
             intent: ._testValue(),

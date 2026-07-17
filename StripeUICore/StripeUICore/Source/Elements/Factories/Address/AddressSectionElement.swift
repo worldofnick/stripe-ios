@@ -77,17 +77,18 @@ import UIKit
     }
 
     /// Describes how autocomplete is presented when collecting all address fields.
+    /// This has no effect when `fieldsToCollect` is not ``FieldsToCollect/all``.
     public enum AutocompleteStyle: Equatable {
         /// Does not show autocomplete.
         case none
         /// Shows country and the autocomplete line entry point.
-        /// - Parameter autocompleteCountries: Countries that support autocomplete. If nil, all countries are supported.
+        /// - Parameter supportedCountries: Countries that support autocomplete. If nil, all countries are supported.
         ///   Callers should expand when an unsupported country is selected.
-        case compact(autocompleteCountries: [String]? = nil)
+        case compact(supportedCountries: [String]? = nil)
         /// Shows the full address form. Line 1 opens autocomplete when the selected country is supported.
-        /// - Parameter autocompleteCountries: Countries that support autocomplete. If nil, all countries are supported.
+        /// - Parameter supportedCountries: Countries that support autocomplete. If nil, all countries are supported.
         ///   Unsupported countries use manual entry.
-        case expanded(autocompleteCountries: [String]? = nil)
+        case expanded(supportedCountries: [String]? = nil)
     }
     /// Fields that this section can collect in addition to the address
     public struct AdditionalFields {
@@ -187,6 +188,8 @@ import UIKit
        - locale: Locale used to generate the display names for each country
        - addressSpecProvider: Determines the list of address fields to display for a selected country
        - defaults: Default address to prepopulate address fields with
+       - fieldsToCollect: The address fields to collect
+       - autocompleteStyle: How to present autocomplete when collecting all address fields
      */
     public init(
         title: String? = nil,
@@ -434,8 +437,8 @@ private extension AddressSectionElement.AutocompleteStyle {
 
     func showsAccessory(for countryCode: String) -> Bool {
         switch self {
-        case .expanded(let autocompleteCountries):
-            return autocompleteCountries?.caseInsensitiveContains(countryCode) ?? true
+        case .expanded(let supportedCountries):
+            return supportedCountries?.caseInsensitiveContains(countryCode) ?? true
         case .none, .compact:
             return false
         }
