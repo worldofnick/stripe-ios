@@ -86,7 +86,6 @@ extension SavedPaymentMethodFormFactory {
                 return makeBillingAddressSection(
                     configuration,
                     defaultFieldsToCollect: .country,
-                    minimumFieldsToCollectByCountry: PaymentSheetFormFactory.cardMinimumFieldsToCollectByCountry,
                     countries: countries
                 )
             case .full:
@@ -112,14 +111,13 @@ extension SavedPaymentMethodFormFactory {
     func makeBillingAddressSection(
         _ configuration: UpdatePaymentMethodViewController.Configuration,
         defaultFieldsToCollect: AddressSectionElement.FieldsToCollect = .all,
-        minimumFieldsToCollectByCountry: [String: AddressSectionElement.FieldsToCollect] = [:],
         countries: [String]? = nil) -> PaymentMethodElementWrapper<AddressSectionElement> {
             let section = AddressSectionElement(
                 title: String.Localized.billing_address_lowercase,
                 countries: countries,
                 defaults: currentBillingDetails(paymentMethod: configuration.paymentMethod),
                 defaultFieldsToCollect: defaultFieldsToCollect,
-                minimumFieldsToCollectByCountry: minimumFieldsToCollectByCountry,
+                minimumFieldsToCollectByCountry: PaymentSheetFormFactory.cardMinimumFieldsToCollectByCountry,
                 additionalFields: .init(
                     billingSameAsShippingCheckbox: .disabled
                 ),

@@ -49,6 +49,7 @@ final class LinkPaymentMethodFormElement: Element {
     let paymentMethod: ConsumerPaymentDetails
     let isBillingDetailsUpdateFlow: Bool
     private let linkAppearance: LinkAppearance?
+    private let minimumBillingAddressFieldsToCollectByCountry: [String: AddressSectionElement.FieldsToCollect]
 
     let configuration: PaymentElementConfiguration
 
@@ -261,24 +262,28 @@ final class LinkPaymentMethodFormElement: Element {
             phone: collectPhone ? .enabled(isOptional: false) : .disabled,
             email: collectEmail ? .enabled(isOptional: false) : .disabled
         )
-        let collectsFullAddress = configuration.billingDetailsCollectionConfiguration.address == .full
-
         return AddressSectionElement(
             title: String.Localized.billing_address_lowercase,
             countries: isBillingDetailsUpdateFlow ? configuration.billingDetailsCollectionConfiguration.allowedCountriesArray : nil,
             defaults: defaultBillingAddress,
-            defaultFieldsToCollect: collectsFullAddress ? .all : .country,
-            minimumFieldsToCollectByCountry: collectsFullAddress
-                ? [:] : PaymentSheetFormFactory.cardMinimumFieldsToCollectByCountry,
+            defaultFieldsToCollect: configuration.billingDetailsCollectionConfiguration.address == .full ? .all : .country,
+            minimumFieldsToCollectByCountry: minimumBillingAddressFieldsToCollectByCountry,
             additionalFields: additionalFields,
             theme: theme
         )
     }()
 
-    init(paymentMethod: ConsumerPaymentDetails, configuration: PaymentElementConfiguration, isBillingDetailsUpdateFlow: Bool, linkAppearance: LinkAppearance? = nil) {
+    init(
+        paymentMethod: ConsumerPaymentDetails,
+        configuration: PaymentElementConfiguration,
+        isBillingDetailsUpdateFlow: Bool,
+        minimumBillingAddressFieldsToCollectByCountry: [String: AddressSectionElement.FieldsToCollect],
+        linkAppearance: LinkAppearance? = nil
+    ) {
         self.paymentMethod = paymentMethod
         self.configuration = configuration
         self.isBillingDetailsUpdateFlow = isBillingDetailsUpdateFlow
+        self.minimumBillingAddressFieldsToCollectByCountry = minimumBillingAddressFieldsToCollectByCountry
         self.linkAppearance = linkAppearance
 
         if let expiryDate = paymentMethod.cardDetails?.expiryDate {

@@ -105,6 +105,7 @@ extension PaymentSheetFormFactory {
             case .full:
                 return makeBillingAddressSection(
                     defaultFieldsToCollect: .all,
+                    minimumFieldsToCollectByCountry: Self.cardMinimumFieldsToCollectByCountry,
                     autocompleteStyle: .compact(),
                     countries: countries,
                     includeEmail: shouldIncludeEmail,

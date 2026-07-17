@@ -810,9 +810,8 @@ extension PaymentSheetFormFactory {
         countries: [String]?,
         countryAPIPath: String? = nil
     ) -> PaymentMethodElementWrapper<AddressSectionElement> {
-        let collectsFullAddress = configuration.billingDetailsCollectionConfiguration.address == .full
         return makeBillingAddressSection(
-            defaultFieldsToCollect: collectsFullAddress ? .all : .country,
+            defaultFieldsToCollect: configuration.billingDetailsCollectionConfiguration.address == .full ? .all : .country,
             autocompleteStyle: .compact(),
             countries: countries,
             countryAPIPath: countryAPIPath
