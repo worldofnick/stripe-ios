@@ -270,8 +270,12 @@ class AddressSectionElementTest: XCTestCase {
 
         XCTAssertNil(sut.line1)
 
-        sut.fieldsToCollect = .all
         sut.autocompleteStyle = .compact()
+
+        XCTAssertNil(sut.autoCompleteLine)
+        XCTAssertNil(sut.line1)
+
+        sut.fieldsToCollect = .all
 
         XCTAssertNotNil(sut.autoCompleteLine)
         XCTAssertNil(sut.line1)
