@@ -94,9 +94,21 @@ extension PaymentSheetFormFactory {
                 : Array(configuration.billingDetailsCollectionConfiguration.allowedCountries)
             switch configuration.billingDetailsCollectionConfiguration.address {
             case .automatic:
-                return makeBillingAddressSection(collectionMode: .countryAndPostal(), countries: countries, includeEmail: shouldIncludeEmail, includePhone: shouldIncludePhone)
+                return makeBillingAddressSection(
+                    fieldsToCollect: .countryAndPostal(),
+                    autocompleteStyle: .none,
+                    countries: countries,
+                    includeEmail: shouldIncludeEmail,
+                    includePhone: shouldIncludePhone
+                )
             case .full:
-                return makeBillingAddressSection(collectionMode: .autocomplete(), countries: countries, includeEmail: shouldIncludeEmail, includePhone: shouldIncludePhone)
+                return makeBillingAddressSection(
+                    fieldsToCollect: .all,
+                    autocompleteStyle: .compact(),
+                    countries: countries,
+                    includeEmail: shouldIncludeEmail,
+                    includePhone: shouldIncludePhone
+                )
             case .never:
                 return nil
             }

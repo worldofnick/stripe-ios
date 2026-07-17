@@ -482,7 +482,8 @@ extension PaymentSheetFormFactory {
     }
 
     func makeBillingAddressSection(
-        collectionMode: AddressSectionElement.CollectionMode = .autocomplete(),
+        fieldsToCollect: AddressSectionElement.FieldsToCollect = .all,
+        autocompleteStyle: AddressSectionElement.AutocompleteStyle = .compact(),
         countries: [String]? = nil,
         countryAPIPath: String? = nil,
         includeEmail: Bool = false,
@@ -509,31 +510,32 @@ extension PaymentSheetFormFactory {
             defaultAddress.email = defaultBillingDetails().email
         }
 
-        // Determine the collection mode based on whether we have default values
-        let finalCollectionMode: AddressSectionElement.CollectionMode = {
+        // Determine the autocomplete style based on whether we have default values
+        let finalAutocompleteStyle: AddressSectionElement.AutocompleteStyle = {
             // If we have default address values, show the expanded form so those values are visible.
             let hasDefaultAddressValues = defaultBillingDetails().address != .init() || (configuration.shippingDetails() != nil && displayBillingSameAsShippingCheckbox)
             if hasDefaultAddressValues {
-                switch collectionMode {
-                case .autocomplete(let autocompleteCountries, .compact):
+                switch autocompleteStyle {
+                case .compact(let autocompleteCountries):
                     // Preserve any autocomplete country restrictions while expanding so default values are visible.
-                    return .autocomplete(autocompleteCountries: autocompleteCountries, presentation: .expanded)
+                    return .expanded(autocompleteCountries: autocompleteCountries)
                 default:
-                    return collectionMode
+                    return autocompleteStyle
                 }
             } else {
-                return collectionMode
+                return autocompleteStyle
             }
         }()
 
         let section = AddressSectionElement(
             // TODO: Switch between "billing address" and "billing details" strings once the localizations have landed
             // A lone country dropdown doesn't need a "Billing address" header
-            title: finalCollectionMode == .countryOnly ? nil : String.Localized.billing_address_lowercase,
+            title: fieldsToCollect == .country ? nil : String.Localized.billing_address_lowercase,
             countries: countries,
             addressSpecProvider: addressSpecProvider,
             defaults: defaultAddress,
-            collectionMode: finalCollectionMode,
+            fieldsToCollect: fieldsToCollect,
+            autocompleteStyle: finalAutocompleteStyle,
             additionalFields: .init(
                 phone: includePhone ? .enabled(isOptional: false) : .disabled,
                 email: includeEmail ? .enabled(isOptional: false) : .disabled,
@@ -701,7 +703,7 @@ extension PaymentSheetFormFactory {
         let phoneElement = configuration.billingDetailsCollectionConfiguration.phone == .always ? makePhone() : nil
         let addressElement = configuration.billingDetailsCollectionConfiguration.address == .full
             ? makeBillingAddressSection(
-                collectionMode: .autocomplete(),
+                autocompleteStyle: .compact(),
                 countries: configuration.billingDetailsCollectionConfiguration.allowedCountriesArray
             )
             : nil
@@ -798,8 +800,10 @@ extension PaymentSheetFormFactory {
         countries: [String]?,
         countryAPIPath: String? = nil
     ) -> PaymentMethodElementWrapper<AddressSectionElement> {
-        makeBillingAddressSection(
-            collectionMode: configuration.billingDetailsCollectionConfiguration.address == .full ? .all : .countryOnly,
+        let collectsFullAddress = configuration.billingDetailsCollectionConfiguration.address == .full
+        return makeBillingAddressSection(
+            fieldsToCollect: collectsFullAddress ? .all : .country,
+            autocompleteStyle: collectsFullAddress ? .compact() : .none,
             countries: countries,
             countryAPIPath: countryAPIPath
         )
@@ -889,7 +893,7 @@ extension PaymentSheetFormFactory {
 
         let countries = configuration.billingDetailsCollectionConfiguration.allowedCountriesArray
         let addressElement = billingConfiguration.address == .full
-            ? makeBillingAddressSection(collectionMode: .autocomplete(), countries: countries)
+            ? makeBillingAddressSection(autocompleteStyle: .compact(), countries: countries)
             : nil
 
         // An email is required, so only hide the email field iff:

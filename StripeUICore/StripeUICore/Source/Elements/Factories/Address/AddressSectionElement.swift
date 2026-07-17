@@ -65,29 +65,29 @@ import UIKit
         }
     }
 
-    /// Describes which address fields to collect
-    public enum CollectionMode: Equatable {
-        /// Shows all address fields without autocomplete.
-        case all
-        /// Shows address autocomplete.
-        /// - Parameters:
-        ///   - autocompleteCountries: Countries that support autocomplete. If nil, all countries are supported.
-        ///     Unsupported countries use manual entry in expanded mode.
-        ///     Compact mode callers should expand when an unsupported country is selected.
-        ///   - presentation: Whether to show only the autocomplete entry point or the full address form.
-        case autocomplete(autocompleteCountries: [String]? = nil, presentation: AutocompletePresentation = .compact)
+    /// Describes which address fields to collect.
+    public enum FieldsToCollect: Equatable {
+        /// Only collects the country. Used by Payment Methods that require a country but not the rest of the address.
+        case country
         /// Collects country and postal code if the country is one of `countriesRequiringPostalCollection`
         /// - Note: Really only useful for cards, where we only collect postal for a handful of countries
         case countryAndPostal(countriesRequiringPostalCollection: [String] = ["US", "GB", "CA"])
-        /// Only collects the country. Used by Payment Methods that require a country but not the rest of the address.
-        case countryOnly
+        /// Collects all address fields.
+        case all
+    }
 
-        public enum AutocompletePresentation: Equatable {
-            /// Shows country and the autocomplete line entry point.
-            case compact
-            /// Shows the full address form. Line 1 opens autocomplete when the selected country is supported.
-            case expanded
-        }
+    /// Describes how autocomplete is presented when collecting all address fields.
+    public enum AutocompleteStyle: Equatable {
+        /// Does not show autocomplete.
+        case none
+        /// Shows country and the autocomplete line entry point.
+        /// - Parameter autocompleteCountries: Countries that support autocomplete. If nil, all countries are supported.
+        ///   Callers should expand when an unsupported country is selected.
+        case compact(autocompleteCountries: [String]? = nil)
+        /// Shows the full address form. Line 1 opens autocomplete when the selected country is supported.
+        /// - Parameter autocompleteCountries: Countries that support autocomplete. If nil, all countries are supported.
+        ///   Unsupported countries use manual entry.
+        case expanded(autocompleteCountries: [String]? = nil)
     }
     /// Fields that this section can collect in addition to the address
     public struct AdditionalFields {
@@ -139,9 +139,16 @@ import UIKit
     public let sameAsCheckbox: CheckboxElement
 
     // MARK: Other properties
-    public var collectionMode: CollectionMode {
+    public var fieldsToCollect: FieldsToCollect {
         didSet {
-            if oldValue != collectionMode {
+            if oldValue != fieldsToCollect {
+                updateAddressFields(for: countryCodes[country.selectedIndex], address: nil)
+            }
+        }
+    }
+    public var autocompleteStyle: AutocompleteStyle {
+        didSet {
+            if oldValue != autocompleteStyle {
                 updateAddressFields(for: countryCodes[country.selectedIndex], address: nil)
             }
         }
@@ -187,14 +194,16 @@ import UIKit
         locale: Locale = .current,
         addressSpecProvider: AddressSpecProvider = .shared,
         defaults: AddressDetails = .empty,
-        collectionMode: CollectionMode = .all,
+        fieldsToCollect: FieldsToCollect = .all,
+        autocompleteStyle: AutocompleteStyle = .none,
         additionalFields: AdditionalFields = .init(),
         theme: ElementsAppearance = .default,
         presentAutoComplete: @escaping () -> Void = { }
     ) {
         let dropdownCountries = countries?.map { $0.uppercased() } ?? addressSpecProvider.countries
         let countryCodes = locale.sortedByTheirLocalizedNames(dropdownCountries)
-        self.collectionMode = collectionMode
+        self.fieldsToCollect = fieldsToCollect
+        self.autocompleteStyle = autocompleteStyle
         self.countryCodes = countryCodes
         self.country = DropdownFieldElement.Address.makeCountry(
             label: String.Localized.country_or_region,
@@ -321,10 +330,10 @@ import UIKit
         // Get the address spec for the country and filter out unused fields
         let spec = addressSpecProvider.addressSpec(for: countryCode)
         let fieldOrdering = spec.fieldOrdering.filter {
-            switch collectionMode {
+            switch fieldsToCollect {
             case .all:
                 return true
-            case .countryOnly:
+            case .country:
                 return false
             case .countryAndPostal(let countriesRequiringPostalCollection):
                 if case .postal = $0 {
@@ -332,21 +341,18 @@ import UIKit
                 } else {
                    return false
                 }
-            case .autocomplete(_, .compact):
-                return false
-            case .autocomplete(_, .expanded):
-                return true
             }
         }
+        let displayedFieldOrdering = fieldsToCollect == .all && autocompleteStyle.isCompact ? [] : fieldOrdering
 
-        if collectionMode.isCompactAutocomplete {
+        if fieldsToCollect == .all, autocompleteStyle.isCompact {
             autoCompleteLine = autoCompleteLine ?? DummyAddressLine(theme: theme, didTap: { [weak self] in self?.didTapAutocompleteButton() })
         } else {
             autoCompleteLine = nil
         }
         // Re-create the address fields
-        if fieldOrdering.contains(.line) {
-            if collectionMode.showsAutocompleteAccessory(for: countryCode) {
+        if displayedFieldOrdering.contains(.line) {
+            if fieldsToCollect == .all, autocompleteStyle.showsAccessory(for: countryCode) {
                 line1 = TextFieldElement.Address.LineConfiguration(
                     lineType: .line1Autocompletable(didTapAutocomplete: { [weak self] in self?.didTapAutocompleteButton() }),
                     defaultValue: address.line1
@@ -354,20 +360,22 @@ import UIKit
             } else {
                 line1 = TextFieldElement.Address.makeLine1(defaultValue: address.line1, theme: theme)
             }
+        } else {
+            line1 = nil
         }
-        line2 = fieldOrdering.contains(.line) ?
+        line2 = displayedFieldOrdering.contains(.line) ?
             TextFieldElement.Address.makeLine2(defaultValue: address.line2, theme: theme) : nil
-        city = fieldOrdering.contains(.city) ?
+        city = displayedFieldOrdering.contains(.city) ?
         spec.makeCityElement(defaultValue: address.city, theme: theme) : nil
-        state = fieldOrdering.contains(.state) ?
+        state = displayedFieldOrdering.contains(.state) ?
         spec.makeStateElement(defaultValue: address.state,
                               stateDict: Dictionary(uniqueKeysWithValues: zip(spec.subKeys ?? [], spec.subLabels ?? [])),
                               theme: theme) : nil
-        postalCode = fieldOrdering.contains(.postal) ?
+        postalCode = displayedFieldOrdering.contains(.postal) ?
         spec.makePostalElement(countryCode: countryCode, defaultValue: address.postalCode, theme: theme) : nil
 
-        // Order the address fields according to `fieldOrdering`
-        let addressFields: [Element?] = fieldOrdering.reduce([]) { partialResult, fieldType in
+        // Order the address fields according to `displayedFieldOrdering`
+        let addressFields: [Element?] = displayedFieldOrdering.reduce([]) { partialResult, fieldType in
             // This should be a flatMap but I'm having trouble satisfying the compiler
             switch fieldType {
             case .line:
@@ -414,21 +422,21 @@ import UIKit
 
 }
 
-private extension AddressSectionElement.CollectionMode {
-    var isCompactAutocomplete: Bool {
+private extension AddressSectionElement.AutocompleteStyle {
+    var isCompact: Bool {
         switch self {
-        case .autocomplete(_, .compact):
+        case .compact:
             return true
-        case .all, .autocomplete(_, .expanded), .countryAndPostal, .countryOnly:
+        case .none, .expanded:
             return false
         }
     }
 
-    func showsAutocompleteAccessory(for countryCode: String) -> Bool {
+    func showsAccessory(for countryCode: String) -> Bool {
         switch self {
-        case .autocomplete(let autocompleteCountries, .expanded):
+        case .expanded(let autocompleteCountries):
             return autocompleteCountries?.caseInsensitiveContains(countryCode) ?? true
-        case .all, .autocomplete(_, .compact), .countryAndPostal, .countryOnly:
+        case .none, .compact:
             return false
         }
     }
