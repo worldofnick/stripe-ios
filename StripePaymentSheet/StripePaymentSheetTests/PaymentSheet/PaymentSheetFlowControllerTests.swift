@@ -558,6 +558,51 @@ class PaymentSheetFlowControllerTests: XCTestCase {
     }
 
     @MainActor
+    func testHorizontalPreviousApplePaySelectionOverridesServerDefault() {
+        // Given a horizontal FlowController where the server default is a saved bank account
+        let customerID = "cus_horizontal_server_default"
+        let bank = STPPaymentMethod._testUSBankAccount()
+        let intent = Intent._testPaymentIntent(paymentMethodTypes: [.card])
+        let elementsSession = STPElementsSession._testValue(
+            intent: intent,
+            defaultPaymentMethod: bank.stripeId,
+            paymentMethods: [bank.allResponseFields],
+            allowsSetAsDefaultPM: true
+        )
+        let loadResult = PaymentSheetLoader.LoadResult(
+            intent: intent,
+            elementsSession: elementsSession,
+            savedPaymentMethods: [bank],
+            paymentMethodTypes: [.stripe(.card)],
+            paymentMethodMessagingPromotionsHelper: ._testValue(),
+            paymentMethodOrientation: .horizontal
+        )
+        var configuration = PaymentSheet.Configuration._testValue_MostPermissive(isApplePayEnabled: true)
+        configuration.customer = .init(id: customerID, ephemeralKeySecret: "ek_test")
+
+        let initialViewController = PaymentSheetFlowControllerViewController(
+            configuration: configuration,
+            loadResult: loadResult,
+            analyticsHelper: ._testValue()
+        )
+        XCTAssertEqual(savedPaymentMethodID(initialViewController.selectedPaymentOption), bank.stripeId)
+
+        // When the controller is reconstructed with Apple Pay as the previous selection
+        let restoredViewController = PaymentSheetFlowControllerViewController(
+            configuration: configuration,
+            loadResult: loadResult,
+            analyticsHelper: ._testValue(),
+            previousPaymentOption: .applePay,
+            paymentOptionToRestore: .applePay
+        )
+
+        // Then the explicit previous selection takes precedence over the server default
+        guard case .applePay = restoredViewController.selectedPaymentOption else {
+            return XCTFail("Expected Apple Pay to be restored")
+        }
+    }
+
+    @MainActor
     func testCancelingPaymentOptionsDoesNotRestoreDeletedSavedPaymentMethod() {
         // Given a FlowController with a committed saved payment method
         let deletedPaymentMethod = makeCardPaymentMethod(id: "pm_deleted", last4: "4242", brand: "visa")

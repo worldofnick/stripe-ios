@@ -908,7 +908,8 @@ extension PaymentSheet {
                 loadResult: makeUpToDateLoadResult(preferredPaymentOption: snapshot),
                 analyticsHelper: analyticsHelper,
                 walletButtonsViewState: self.walletButtonsViewState,
-                previousPaymentOption: snapshot
+                previousPaymentOption: snapshot,
+                paymentOptionToRestore: snapshot
             )
             self.viewController.flowControllerDelegate = self
             if case let .link(option) = snapshot {
@@ -966,7 +967,8 @@ extension PaymentSheet {
             loadResult: PaymentSheetLoader.LoadResult,
             analyticsHelper: PaymentSheetAnalyticsHelper,
             walletButtonsViewState: PaymentSheet.WalletButtonsViewState,
-            previousPaymentOption: PaymentOption? = nil
+            previousPaymentOption: PaymentOption? = nil,
+            paymentOptionToRestore: PaymentOption? = nil
         ) -> FlowControllerViewControllerProtocol {
             let controller: FlowControllerViewControllerProtocol
             switch loadResult.paymentMethodOrientation {
@@ -975,7 +977,8 @@ extension PaymentSheet {
                     configuration: configuration,
                     loadResult: loadResult,
                     analyticsHelper: analyticsHelper,
-                    previousPaymentOption: previousPaymentOption
+                    previousPaymentOption: previousPaymentOption,
+                    paymentOptionToRestore: paymentOptionToRestore
                 )
             case .vertical:
                 controller = PaymentSheetVerticalViewController(
