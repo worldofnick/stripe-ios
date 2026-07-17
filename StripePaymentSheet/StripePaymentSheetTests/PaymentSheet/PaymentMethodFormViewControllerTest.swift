@@ -75,7 +75,9 @@ final class PaymentMethodFormViewControllerTest: XCTestCase {
         guard let addressSection = sut.form.getAllUnwrappedSubElements().compactMap({ $0 as? AddressSectionElement }).first else {
             return XCTFail("Expected an AddressSectionElement")
         }
-        XCTAssertEqual(addressSection.fieldsToCollect, .countryAndPostal())
+        XCTAssertEqual(addressSection.defaultFieldsToCollect, .country)
+        XCTAssertEqual(addressSection.autocompleteStyle, .compact())
+        XCTAssertNotNil(addressSection.postalCode)
 
         // When shipping details are added and the form is displayed again...
         shippingDetails = AddressViewController.AddressDetails(address: .init(country: "US", line1: "Updated line1"))
@@ -83,7 +85,7 @@ final class PaymentMethodFormViewControllerTest: XCTestCase {
         sut.endAppearanceTransition()
 
         // Then the section expands so the updated shipping address can be populated.
-        XCTAssertEqual(addressSection.fieldsToCollect, .all)
+        XCTAssertEqual(addressSection.defaultFieldsToCollect, .all)
         XCTAssertEqual(addressSection.autocompleteStyle, .expanded())
         XCTAssertEqual(addressSection.line1?.text, "Updated line1")
     }

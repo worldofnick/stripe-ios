@@ -638,7 +638,7 @@ extension AddressViewController {
             countries: configuration.allowedCountries.isEmpty ? nil : configuration.allowedCountries,
             addressSpecProvider: addressSpecProvider,
             defaults: .init(from: billingAddress),
-            fieldsToCollect: .all,
+            defaultFieldsToCollect: .all,
             additionalFields: .init(from: configuration.additionalFields),
             theme: configuration.appearance.asElementsTheme,
             presentAutoComplete: { /* no-op for comparison */ }

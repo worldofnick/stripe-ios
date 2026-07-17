@@ -95,15 +95,16 @@ extension PaymentSheetFormFactory {
             switch configuration.billingDetailsCollectionConfiguration.address {
             case .automatic:
                 return makeBillingAddressSection(
-                    fieldsToCollect: .countryAndPostal(),
-                    autocompleteStyle: .none,
+                    defaultFieldsToCollect: .country,
+                    minimumFieldsToCollectByCountry: Self.cardMinimumFieldsToCollectByCountry,
+                    autocompleteStyle: .compact(),
                     countries: countries,
                     includeEmail: shouldIncludeEmail,
                     includePhone: shouldIncludePhone
                 )
             case .full:
                 return makeBillingAddressSection(
-                    fieldsToCollect: .all,
+                    defaultFieldsToCollect: .all,
                     autocompleteStyle: .compact(),
                     countries: countries,
                     includeEmail: shouldIncludeEmail,

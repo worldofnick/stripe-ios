@@ -74,7 +74,7 @@ final class LinkPaymentMethodFormElement: Element {
 
         // TODO(link): Replace `STPPaymentMethodBillingDetails` with a custom struct for Link.
         // This matches the object that was returned by CardDetailsEditView, but won't work
-        // with `fieldsToCollect: .all`, because extra fields won't match what expected by Link.
+        // with `defaultFieldsToCollect: .all`, because extra fields won't match what expected by Link.
         let billingDetails = STPPaymentMethodBillingDetails()
         billingDetails.name = billingAddressSection?.name?.text
             ?? nameOnCardElement?.text
@@ -261,14 +261,15 @@ final class LinkPaymentMethodFormElement: Element {
             phone: collectPhone ? .enabled(isOptional: false) : .disabled,
             email: collectEmail ? .enabled(isOptional: false) : .disabled
         )
+        let collectsFullAddress = configuration.billingDetailsCollectionConfiguration.address == .full
 
         return AddressSectionElement(
             title: String.Localized.billing_address_lowercase,
             countries: isBillingDetailsUpdateFlow ? configuration.billingDetailsCollectionConfiguration.allowedCountriesArray : nil,
             defaults: defaultBillingAddress,
-            fieldsToCollect: configuration.billingDetailsCollectionConfiguration.address == .full
-                ? .all
-                : .countryAndPostal(),
+            defaultFieldsToCollect: collectsFullAddress ? .all : .country,
+            minimumFieldsToCollectByCountry: collectsFullAddress
+                ? [:] : PaymentSheetFormFactory.cardMinimumFieldsToCollectByCountry,
             additionalFields: additionalFields,
             theme: theme
         )

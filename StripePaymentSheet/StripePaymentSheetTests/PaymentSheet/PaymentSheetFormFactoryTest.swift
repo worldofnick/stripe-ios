@@ -2769,15 +2769,21 @@ class PaymentSheetFormFactoryTest: XCTestCase {
     }
 
     func testAppliesPreviousCustomerInput_klarna_country() {
+        let addressSpecProvider = AddressSpecProvider()
+        addressSpecProvider.addressSpecs = [
+            "US": AddressSpec(format: "ACSZ", require: "ACSZ", cityNameType: .city, stateNameType: .state, zip: "", zipNameType: .zip),
+            "CA": AddressSpec(format: "ACSZ", require: "ACSZ", cityNameType: .city, stateNameType: .province, zip: "", zipNameType: .postal_code),
+        ]
         func makeKlarnaCountry(apiPath: String?, previousCustomerInput: IntentConfirmParams?) -> PaymentMethodElementWrapper<AddressSectionElement> {
             let factory = PaymentSheetFormFactory(
                 intent: ._testPaymentIntent(paymentMethodTypes: [.klarna], currency: "eur"),
                 elementsSession: ._testValue(paymentMethodTypes: ["klarna"]),
                 configuration: .paymentElement(PaymentSheet.Configuration._testValue_MostPermissive()),
                 paymentMethod: .stripe(.klarna),
-                previousCustomerInput: previousCustomerInput
+                previousCustomerInput: previousCustomerInput,
+                addressSpecProvider: addressSpecProvider
             )
-            return factory.makeBillingAddressSection(fieldsToCollect: .country, autocompleteStyle: .none, countryAPIPath: apiPath)
+            return factory.makeBillingAddressSection(defaultFieldsToCollect: .country, autocompleteStyle: .none, countryAPIPath: apiPath)
         }
         let apiPathValues: [String?] = [nil, "billing_details[address][country]"] // Test the same thing with and without an api path
         apiPathValues.forEach { apiPath in
