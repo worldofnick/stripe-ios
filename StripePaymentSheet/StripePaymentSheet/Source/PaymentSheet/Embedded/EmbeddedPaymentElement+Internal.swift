@@ -91,6 +91,7 @@ extension EmbeddedPaymentElement {
             delegate?.embeddedPaymentElementDidUpdatePaymentOption(embeddedPaymentElement: self)
             lastUpdatedPaymentOption = paymentOption
         }
+        lastCommittedPaymentOption = _paymentOption
     }
 
     // Helper method to create Form VC for a payment method row, if applicable.
@@ -427,20 +428,34 @@ extension EmbeddedPaymentElement: EmbeddedFormViewControllerDelegate {
         let lastSelection = embeddedPaymentMethodsView.previousSelectedRowButton?.type
         let currentlySelectedType = embeddedPaymentMethodsView.selectedRowButton?.type
 
-        // If the user re-selects a valid payment option w/ form, then modifies it, then hits close, we clear selection
-        // Ideally we would revert back to the valid payment option that existed when the form was presented rather than totally clear selection
-        // To restore to the previous payment option we need to restore the previous form VC that contained the previous payment option
-        // TODO (https://jira.corp.stripe.com/browse/MOBILESDK-3361): Consider restoring the form VC and form cache to revert to the last valid payment option
         if lastSelection == currentlySelectedType,
            lastUpdatedPaymentOption != paymentOption {
-            embeddedPaymentMethodsView.resetSelection()
+            if case let .new(confirmParams) = lastCommittedPaymentOption,
+               case let .new(paymentMethodType) = currentlySelectedType,
+               confirmParams.paymentMethodType == paymentMethodType {
+                formCache[paymentMethodType] = nil
+                selectedFormViewController = Self.makeFormViewControllerIfNecessary(
+                    selection: currentlySelectedType,
+                    previousPaymentOption: lastCommittedPaymentOption,
+                    configuration: configuration,
+                    intent: intent,
+                    elementsSession: elementsSession,
+                    savedPaymentMethods: savedPaymentMethods,
+                    analyticsHelper: analyticsHelper,
+                    paymentMethodMessagingPromotionsHelper: loadResult.paymentMethodMessagingPromotionsHelper,
+                    formCache: formCache,
+                    delegate: self
+                )
+            } else {
+                embeddedPaymentMethodsView.resetSelection()
+            }
         } else {
             // Go back to the previous selection if there was one
             embeddedPaymentMethodsView.resetSelectionToLastSelection()
         }
 
         // Show change button if the newly selected row needs it
-        if let currentlySelectedType = embeddedPaymentMethodsView.selectedRowButton?.type{
+        if let currentlySelectedType = embeddedPaymentMethodsView.selectedRowButton?.type {
             updateChangeButtonAndSublabelState(for: currentlySelectedType)
         }
 

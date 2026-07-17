@@ -881,6 +881,38 @@ class EmbeddedPaymentElementTest: XCTestCase {
         XCTAssertNil(sut.paymentOption, "Payment option should be nil after filling out the card form, but hitting cancel.")
     }
 
+    func testCancelingEditedCommittedFormRestoresPaymentOption() async throws {
+        // Given an EmbeddedPaymentElement with a committed card
+        let sut = try await EmbeddedPaymentElement.create(
+            intentConfiguration: paymentIntentConfig,
+            configuration: configuration
+        )
+        sut.delegate = self
+        sut.presentingViewController = UIViewController()
+        sut.embeddedPaymentMethodsView.didTap(
+            rowButton: sut.embeddedPaymentMethodsView.getRowButton(accessibilityIdentifier: "Card")
+        )
+        var cardForm = sut.formCache[.stripe(.card)]!
+        cardForm.getTextFieldElement("Card number").setText("4242424242424242")
+        cardForm.getTextFieldElement("MM / YY").setText("1240")
+        cardForm.getTextFieldElement("CVC").setText("123")
+        cardForm.getTextFieldElement("ZIP").setText("12345")
+        sut.selectedFormViewController?.didTapPrimaryButton()
+        XCTAssertEqual(sut.paymentOption?.label, "•••• 4242")
+
+        // When the same card row is reopened, edited, and canceled
+        sut.embeddedPaymentMethodsView.didTap(
+            rowButton: sut.embeddedPaymentMethodsView.getRowButton(accessibilityIdentifier: "Card")
+        )
+        cardForm.getTextFieldElement("Card number").setText("5555555555554444")
+        sut.selectedFormViewController?.didTapOrSwipeToDismiss()
+
+        // Then the committed card and its form input are restored
+        XCTAssertEqual(sut.paymentOption?.label, "•••• 4242")
+        cardForm = sut.formCache[.stripe(.card)]!
+        XCTAssertEqual(cardForm.getTextFieldElement("Card number").text, "4242424242424242")
+    }
+
     // MARK: - Checkout Session update tests
 
     func testUpdateCheckoutSession() async throws {
