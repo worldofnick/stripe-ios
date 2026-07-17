@@ -91,7 +91,7 @@ extension EmbeddedPaymentElement {
             delegate?.embeddedPaymentElementDidUpdatePaymentOption(embeddedPaymentElement: self)
             lastUpdatedPaymentOption = paymentOption
         }
-        lastCommittedPaymentOption = _paymentOption
+        lastSelectedPaymentOption = _paymentOption
     }
 
     // Helper method to create Form VC for a payment method row, if applicable.
@@ -424,10 +424,10 @@ extension EmbeddedPaymentElement: EmbeddedFormViewControllerDelegate {
         }
     }
 
-    /// Restores a committed form-backed selection, including linked banks that are represented as `.saved`.
-    private func restoreLastCommittedForm(for selection: RowButtonType?) -> Bool {
+    /// Restores the last selected form, including linked banks that are represented as `.saved`.
+    private func restoreLastSelectedForm(for selection: RowButtonType?) -> Bool {
         guard case let .new(paymentMethodType) = selection,
-              let confirmParams = lastCommittedPaymentOption?.newConfirmParams,
+              let confirmParams = lastSelectedPaymentOption?.newConfirmParams,
               confirmParams.paymentMethodType == paymentMethodType else {
             return false
         }
@@ -452,14 +452,14 @@ extension EmbeddedPaymentElement: EmbeddedFormViewControllerDelegate {
         let currentlySelectedType = embeddedPaymentMethodsView.selectedRowButton?.type
 
         if lastSelection == currentlySelectedType {
-            if !restoreLastCommittedForm(for: currentlySelectedType),
+            if !restoreLastSelectedForm(for: currentlySelectedType),
                lastUpdatedPaymentOption != paymentOption {
                 embeddedPaymentMethodsView.resetSelection()
             }
         } else {
             // Go back to the previous selection if there was one
             embeddedPaymentMethodsView.resetSelectionToLastSelection()
-            restoreLastCommittedForm(for: lastSelection)
+            restoreLastSelectedForm(for: lastSelection)
         }
 
         // Show change button if the newly selected row needs it

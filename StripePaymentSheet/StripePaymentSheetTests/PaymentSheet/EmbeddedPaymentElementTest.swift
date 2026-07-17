@@ -881,8 +881,8 @@ class EmbeddedPaymentElementTest: XCTestCase {
         XCTAssertNil(sut.paymentOption, "Payment option should be nil after filling out the card form, but hitting cancel.")
     }
 
-    func testCancelingEditedCommittedFormRestoresPaymentOption() async throws {
-        // Given an EmbeddedPaymentElement with a committed card
+    func testCancelingEditedFormRestoresSelectedPaymentOption() async throws {
+        // Given an EmbeddedPaymentElement with a selected card
         let sut = try await EmbeddedPaymentElement.create(
             intentConfiguration: paymentIntentConfig,
             configuration: configuration
@@ -907,7 +907,7 @@ class EmbeddedPaymentElementTest: XCTestCase {
         cardForm.getTextFieldElement("Card number").setText("5555555555554444")
         sut.selectedFormViewController?.didTapOrSwipeToDismiss()
 
-        // Then the committed card and its form input are restored
+        // Then the selected card and its form input are restored
         XCTAssertEqual(sut.paymentOption?.label, "•••• 4242")
         cardForm = sut.formCache[.stripe(.card)]!
         XCTAssertEqual(cardForm.getTextFieldElement("Card number").text, "4242424242424242")
@@ -954,7 +954,7 @@ class EmbeddedPaymentElementTest: XCTestCase {
         sut.presentingViewController = UIViewController()
         sut.view.autosizeHeight(width: 320)
 
-        // Given PayPal with collected billing details is committed
+        // Given PayPal with collected billing details is selected
         sut.embeddedPaymentMethodsView.didTap(
             rowButton: sut.embeddedPaymentMethodsView.getRowButton(accessibilityIdentifier: "PayPal")
         )
@@ -970,7 +970,7 @@ class EmbeddedPaymentElementTest: XCTestCase {
         form.getTextFieldElement("Full name")?.setText("John Smith")
         sut.embeddedFormViewControllerDidCancel(try XCTUnwrap(sut.selectedFormViewController))
 
-        // Then the committed billing details are restored
+        // Then the selected billing details are restored
         XCTAssertEqual(sut.paymentOption?.billingDetails?.name, "Jane Doe")
         form = try XCTUnwrap(sut.formCache[.external(externalPaymentOption)])
         XCTAssertEqual(form.getTextFieldElement("Full name")?.text, "Jane Doe")

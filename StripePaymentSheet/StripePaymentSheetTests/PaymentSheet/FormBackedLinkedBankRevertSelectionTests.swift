@@ -27,8 +27,8 @@ final class FormBackedLinkedBankRevertSelectionTests: XCTestCase {
         await FormSpecProvider.shared.load()
     }
 
-    func testEmbedded_cancelAfterReplacingLinkedBank_restoresCommittedBank() throws {
-        // Given a linked bank was committed from the Instant Debits form
+    func testEmbedded_cancelAfterReplacingLinkedBank_restoresSelectedBank() throws {
+        // Given a linked bank was selected from the Instant Debits form
         var configuration = EmbeddedPaymentElement.Configuration._testValue_MostPermissive(isApplePayEnabled: false)
         configuration.formSheetAction = .continue
         configuration.defaultBillingDetails.email = "test@example.com"
@@ -62,8 +62,8 @@ final class FormBackedLinkedBankRevertSelectionTests: XCTestCase {
         XCTAssertEqual(sut.paymentOption?.label, "••••6789")
     }
 
-    func testFlowController_cancelAfterReplacingLinkedBank_restoresCommittedBank() throws {
-        // Given a linked bank was committed from the Instant Debits form
+    func testFlowController_cancelAfterReplacingLinkedBank_restoresSelectedBank() throws {
+        // Given a linked bank was selected from the Instant Debits form
         let customerID = "cus_fc_linked_bank"
         defer { CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: customerID) }
         var configuration = PaymentSheet.Configuration._testValue_MostPermissive(isApplePayEnabled: false)
@@ -95,7 +95,7 @@ final class FormBackedLinkedBankRevertSelectionTests: XCTestCase {
         viewController.didTapOrSwipeToDismiss()
         wait(for: [secondClose], timeout: 2)
 
-        // Then FlowController restores the committed linked-bank form, not a saved-PM row
+        // Then FlowController restores the selected linked-bank form, not a saved-PM row
         let restoredViewController = try XCTUnwrap(flowController.viewController as? PaymentSheetVerticalViewController)
         XCTAssertEqual(restoredViewController.paymentMethodFormViewController?.paymentMethodType, .instantDebits)
         XCTAssertEqual(flowController.paymentOption?.labels.sublabel, "••••6789")

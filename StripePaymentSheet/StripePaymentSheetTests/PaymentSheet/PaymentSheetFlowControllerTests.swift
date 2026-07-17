@@ -472,7 +472,7 @@ class PaymentSheetFlowControllerTests: XCTestCase {
 
     @MainActor
     func testCancelingPaymentOptionsRestoresPreviousSavedPaymentMethod() {
-        // Given a FlowController with a committed saved payment method
+        // Given a FlowController with a selected saved payment method
         let firstPaymentMethod = makeCardPaymentMethod(id: "pm_first", last4: "4242", brand: "visa")
         let secondPaymentMethod = makeCardPaymentMethod(id: "pm_second", last4: "0005", brand: "amex")
         CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(firstPaymentMethod.stripeId), forCustomer: nil)
@@ -496,14 +496,14 @@ class PaymentSheetFlowControllerTests: XCTestCase {
         flowController.flowControllerViewControllerShouldClose(presentedViewController, didCancel: true)
         wait(for: [completionExpectation], timeout: 2)
 
-        // Then the committed option and local default are restored
+        // Then the previous payment option and local default are restored
         XCTAssertEqual(savedPaymentMethodID(flowController.viewController.selectedPaymentOption), firstPaymentMethod.stripeId)
         XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: nil), .stripeId(firstPaymentMethod.stripeId))
     }
 
     @MainActor
     func testContinuingPaymentOptionsKeepsNewSavedPaymentMethod() {
-        // Given a FlowController with a committed saved payment method
+        // Given a FlowController with a selected saved payment method
         let firstPaymentMethod = makeCardPaymentMethod(id: "pm_first", last4: "4242", brand: "visa")
         let secondPaymentMethod = makeCardPaymentMethod(id: "pm_second", last4: "0005", brand: "amex")
         CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(firstPaymentMethod.stripeId), forCustomer: nil)
@@ -524,14 +524,14 @@ class PaymentSheetFlowControllerTests: XCTestCase {
         flowController.flowControllerViewControllerShouldClose(presentedViewController, didCancel: false)
         wait(for: [completionExpectation], timeout: 2)
 
-        // Then the new option remains committed
+        // Then the new option remains selected
         XCTAssertEqual(savedPaymentMethodID(flowController.viewController.selectedPaymentOption), secondPaymentMethod.stripeId)
         XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: nil), .stripeId(secondPaymentMethod.stripeId))
     }
 
     @MainActor
     func testCancelingHorizontalPaymentOptionsRestoresPreviousSavedPaymentMethod() {
-        // Given a horizontal FlowController with a committed saved payment method
+        // Given a horizontal FlowController with a selected saved payment method
         let firstPaymentMethod = makeCardPaymentMethod(id: "pm_first", last4: "4242", brand: "visa")
         let secondPaymentMethod = makeCardPaymentMethod(id: "pm_second", last4: "0005", brand: "amex")
         CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(firstPaymentMethod.stripeId), forCustomer: nil)
@@ -552,7 +552,7 @@ class PaymentSheetFlowControllerTests: XCTestCase {
         flowController.flowControllerViewControllerShouldClose(flowController.viewController, didCancel: true)
         wait(for: [completionExpectation], timeout: 2)
 
-        // Then cancel restores the committed option and persisted selection
+        // Then cancel restores the previous payment option and persisted selection
         XCTAssertEqual(savedPaymentMethodID(flowController.viewController.selectedPaymentOption), firstPaymentMethod.stripeId)
         XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: nil), .stripeId(firstPaymentMethod.stripeId))
     }
@@ -638,11 +638,11 @@ class PaymentSheetFlowControllerTests: XCTestCase {
         let viewController = flowController.viewController as! PaymentSheetVerticalViewController
         viewController.loadViewIfNeeded()
 
-        // Given PayPal with collected billing details is committed
-        let committed = expectation(description: "Payment options committed")
+        // Given PayPal with collected billing details is selected
+        let continued = expectation(description: "Payment options continued")
         flowController.presentPaymentOptions(from: UIViewController()) { didCancel in
             XCTAssertFalse(didCancel)
-            committed.fulfill()
+            continued.fulfill()
         }
         let row = try XCTUnwrap(
             viewController.paymentMethodListViewController?.rowButtons.first(where: {
@@ -656,7 +656,7 @@ class PaymentSheetFlowControllerTests: XCTestCase {
         let form = try XCTUnwrap(viewController.formCache[.external(externalPaymentOption)])
         form.getTextFieldElement("Full name")?.setText("Jane Doe")
         flowController.flowControllerViewControllerShouldClose(viewController, didCancel: false)
-        wait(for: [committed], timeout: 2)
+        wait(for: [continued], timeout: 2)
 
         // When the customer backs out of the form and cancels
         let canceled = expectation(description: "Payment options canceled")
@@ -669,7 +669,7 @@ class PaymentSheetFlowControllerTests: XCTestCase {
         presentedViewController.didTapOrSwipeToDismiss()
         wait(for: [canceled], timeout: 2)
 
-        // Then PayPal is restored with its committed billing details
+        // Then PayPal is restored with its selected billing details
         let restoredViewController = flowController.viewController as! PaymentSheetVerticalViewController
         guard case .external(_, let billingDetails) = restoredViewController.selectedPaymentOption else {
             return XCTFail("Expected PayPal to be restored")
@@ -683,7 +683,7 @@ class PaymentSheetFlowControllerTests: XCTestCase {
 
     @MainActor
     func testCancelingPaymentOptionsDoesNotRestoreDeletedSavedPaymentMethod() {
-        // Given a FlowController with a committed saved payment method
+        // Given a FlowController with a selected saved payment method
         let deletedPaymentMethod = makeCardPaymentMethod(id: "pm_deleted", last4: "4242", brand: "visa")
         let remainingPaymentMethod = makeCardPaymentMethod(id: "pm_remaining", last4: "0005", brand: "amex")
         CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(deletedPaymentMethod.stripeId), forCustomer: nil)
@@ -694,7 +694,7 @@ class PaymentSheetFlowControllerTests: XCTestCase {
             completionExpectation.fulfill()
         }
 
-        // When the committed method is deleted while the sheet is open
+        // When the selected method is deleted while the sheet is open
         let presentedViewController = flowController.viewController as! PaymentSheetVerticalViewController
         selectSavedPaymentMethod(
             remainingPaymentMethod,
