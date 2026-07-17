@@ -238,6 +238,14 @@ public class PaymentSheet {
     /// A user-supplied completion block. Nil until `present` is called.
     var completion: ((PaymentSheetResult) -> Void)?
 
+    /// The locally persisted payment option when PaymentSheet was presented, along with the saved
+    /// payment methods that were available at that time. Selection changes are persisted as the
+    /// customer taps, so we use this to undo abandoned changes when they cancel the sheet.
+    private var persistedPaymentOptionBeforePresentation: (
+        paymentOption: CustomerPaymentOption?,
+        savedPaymentMethodIDs: Set<String>
+    )?
+
     /// Loading View Controller
     lazy var loadingViewController = LoadingViewController(
         delegate: self,
@@ -275,6 +283,10 @@ public class PaymentSheet {
         loadResult: PaymentSheetLoader.LoadResult,
         previousPaymentOption: PaymentOption?
     ) -> PaymentSheetViewControllerProtocol {
+        persistedPaymentOptionBeforePresentation = (
+            paymentOption: CustomerPaymentOption.localDefaultPaymentMethod(for: configuration.customer?.id),
+            savedPaymentMethodIDs: Set(loadResult.savedPaymentMethods.map(\.stripeId))
+        )
         switch loadResult.paymentMethodOrientation {
         case .horizontal:
             let vc = PaymentSheetViewController(
@@ -362,15 +374,44 @@ extension PaymentSheet: PaymentSheetViewControllerDelegate {
     }
 
     func paymentSheetViewControllerDidFinish(_ paymentSheetViewController: PaymentSheetViewControllerProtocol, result: PaymentSheetResult) {
+        persistedPaymentOptionBeforePresentation = nil
         paymentSheetViewController.dismiss(animated: true) {
             self.completion?(result)
         }
     }
 
     func paymentSheetViewControllerDidCancel(_ paymentSheetViewController: PaymentSheetViewControllerProtocol) {
+        restorePersistedPaymentOptionBeforePresentation(
+            currentSavedPaymentMethods: paymentSheetViewController.savedPaymentMethods
+        )
         paymentSheetViewController.dismiss(animated: true) {
             self.completion?(.canceled)
         }
+    }
+
+    private func restorePersistedPaymentOptionBeforePresentation(
+        currentSavedPaymentMethods: [STPPaymentMethod]
+    ) {
+        guard let snapshot = persistedPaymentOptionBeforePresentation else {
+            return
+        }
+        persistedPaymentOptionBeforePresentation = nil
+
+        if case .stripeId(let paymentMethodID) = snapshot.paymentOption,
+           snapshot.savedPaymentMethodIDs.contains(paymentMethodID),
+           !currentSavedPaymentMethods.contains(where: { $0.stripeId == paymentMethodID }) {
+            // The previously persisted method was available when the sheet opened but is gone now,
+            // which means the customer deleted it. Don't restore a reference to the deleted method.
+            if CustomerPaymentOption.localDefaultPaymentMethod(for: configuration.customer?.id) == snapshot.paymentOption {
+                CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: configuration.customer?.id)
+            }
+            return
+        }
+
+        CustomerPaymentOption.setDefaultPaymentMethod(
+            snapshot.paymentOption,
+            forCustomer: configuration.customer?.id
+        )
     }
 
     func paymentSheetViewControllerDidSelectPayWithLink(_ paymentSheetViewController: PaymentSheetViewControllerProtocol) {
@@ -406,6 +447,7 @@ extension PaymentSheet: LoadingViewControllerDelegate {
 internal protocol PaymentSheetViewControllerProtocol: UIViewController, BottomSheetContentViewController {
     var intent: Intent { get }
     var elementsSession: STPElementsSession { get }
+    var savedPaymentMethods: [STPPaymentMethod] { get }
 
     func pay(with paymentOption: PaymentOption)
     func clearTextFields()
