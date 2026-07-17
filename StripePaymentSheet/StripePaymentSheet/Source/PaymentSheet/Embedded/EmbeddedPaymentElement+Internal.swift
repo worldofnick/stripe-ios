@@ -424,34 +424,42 @@ extension EmbeddedPaymentElement: EmbeddedFormViewControllerDelegate {
         }
     }
 
+    /// Restores a committed form-backed selection, including linked banks that are represented as `.saved`.
+    private func restoreLastCommittedForm(for selection: RowButtonType?) -> Bool {
+        guard case let .new(paymentMethodType) = selection,
+              let confirmParams = lastCommittedPaymentOption?.newConfirmParams,
+              confirmParams.paymentMethodType == paymentMethodType else {
+            return false
+        }
+        formCache[paymentMethodType] = nil
+        selectedFormViewController = Self.makeFormViewControllerIfNecessary(
+            selection: selection,
+            previousPaymentOption: .new(confirmParams: confirmParams),
+            configuration: configuration,
+            intent: intent,
+            elementsSession: elementsSession,
+            savedPaymentMethods: savedPaymentMethods,
+            analyticsHelper: analyticsHelper,
+            paymentMethodMessagingPromotionsHelper: loadResult.paymentMethodMessagingPromotionsHelper,
+            formCache: formCache,
+            delegate: self
+        )
+        return selectedFormViewController != nil
+    }
+
     func embeddedFormViewControllerDidCancel(_ embeddedFormViewController: EmbeddedFormViewController) {
         let lastSelection = embeddedPaymentMethodsView.previousSelectedRowButton?.type
         let currentlySelectedType = embeddedPaymentMethodsView.selectedRowButton?.type
 
-        if lastSelection == currentlySelectedType,
-           lastUpdatedPaymentOption != paymentOption {
-            if case let .new(paymentMethodType) = currentlySelectedType,
-               let confirmParams = lastCommittedPaymentOption?.newConfirmParams,
-               confirmParams.paymentMethodType == paymentMethodType {
-                formCache[paymentMethodType] = nil
-                selectedFormViewController = Self.makeFormViewControllerIfNecessary(
-                    selection: currentlySelectedType,
-                    previousPaymentOption: .new(confirmParams: confirmParams),
-                    configuration: configuration,
-                    intent: intent,
-                    elementsSession: elementsSession,
-                    savedPaymentMethods: savedPaymentMethods,
-                    analyticsHelper: analyticsHelper,
-                    paymentMethodMessagingPromotionsHelper: loadResult.paymentMethodMessagingPromotionsHelper,
-                    formCache: formCache,
-                    delegate: self
-                )
-            } else {
+        if lastSelection == currentlySelectedType {
+            if !restoreLastCommittedForm(for: currentlySelectedType),
+               lastUpdatedPaymentOption != paymentOption {
                 embeddedPaymentMethodsView.resetSelection()
             }
         } else {
             // Go back to the previous selection if there was one
             embeddedPaymentMethodsView.resetSelectionToLastSelection()
+            restoreLastCommittedForm(for: lastSelection)
         }
 
         // Show change button if the newly selected row needs it

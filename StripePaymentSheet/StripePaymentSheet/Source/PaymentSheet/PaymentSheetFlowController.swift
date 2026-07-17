@@ -41,12 +41,15 @@ extension PaymentSheet {
             }
         }
 
-        /// Returns confirm params for `.new` and `.external` options, nil otherwise.
+        /// Returns confirm params for `.new`, `.external`, and form-backed `.saved` options,
+        /// and nil otherwise.
         /// This is often used to restore a customer's previous form input when re-presenting `AddPaymentMethodViewController`.
         var newConfirmParams: IntentConfirmParams? {
             switch self {
-            case .applePay, .saved, .link:
+            case .applePay, .link:
                 return nil
+            case .saved(_, let confirmParams):
+                return confirmParams?.isFormBackedSavedPaymentMethod == true ? confirmParams : nil
             case .new(confirmParams: let params):
                 return params
             case let .external(paymentMethod, billingDetails):
@@ -873,14 +876,22 @@ extension PaymentSheet {
 
         private func restorePaymentOptionBeforePresentation() {
             var snapshot = paymentOptionBeforePresentation
-            if case let .saved(paymentMethod, _) = snapshot,
+            // Form-backed linked banks aren't in `savedPaymentMethods`, so their absence
+            // doesn't mean they were deleted.
+            if case let .saved(paymentMethod, confirmParams) = snapshot,
+               confirmParams?.isFormBackedSavedPaymentMethod != true,
                !viewController.savedPaymentMethods.contains(where: { $0.stripeId == paymentMethod.stripeId }) {
                 snapshot = nil
             }
 
             let customerOption: CustomerPaymentOption? = {
                 switch snapshot {
-                case .saved(let paymentMethod, _):
+                case .saved(let paymentMethod, let confirmParams):
+                    // A form-backed linked bank isn't a reusable customer-saved default,
+                    // so don't persist its ephemeral ID.
+                    guard confirmParams?.isFormBackedSavedPaymentMethod != true else {
+                        return nil
+                    }
                     return .stripeId(paymentMethod.stripeId)
                 case .applePay:
                     return .applePay
