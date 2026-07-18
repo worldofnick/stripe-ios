@@ -201,6 +201,7 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
     func testCancel_restoresNonSavedPersistedPaymentOptions() {
         let paymentOptions: [(name: String, option: CustomerPaymentOption?)] = [
             ("none", nil),
+            ("apple_pay", .applePay),
             ("link", .link),
         ]
 
