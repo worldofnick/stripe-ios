@@ -142,7 +142,7 @@ import UIKit
             }
         }
     }
-    private let minimumFieldsToCollectByCountry: [String: FieldsToCollect]
+    private var minimumFieldsToCollectByCountry: [String: FieldsToCollect]
     public var selectedCountryCode: String {
         get {
             return countryCodes[country.selectedIndex]
@@ -320,6 +320,16 @@ import UIKit
         updateAddressFields(for: selectedCountryCode, address: address, forceExpandAutocomplete: true)
     }
 
+    /// Adds country-specific minimums without reducing existing requirements.
+    @_spi(STP) public func addMinimumFieldsToCollectByCountry(
+        _ additionalMinimums: [String: FieldsToCollect]
+    ) {
+        minimumFieldsToCollectByCountry.merge(additionalMinimums) { existing, additional in
+            return existing.widened(toMeet: additional)
+        }
+        updateAddressFields(for: selectedCountryCode)
+    }
+
     /// Selects a country and rebuilds its address fields using its country-specific minimum, if any.
     private func selectCountry(index: Int, address: AddressDetails.Address? = nil) {
         if country.selectedIndex != index {
@@ -332,18 +342,7 @@ import UIKit
         guard let minimumFieldsToCollect = minimumFieldsToCollectByCountry[countryCode] else {
             return defaultFieldsToCollect
         }
-        switch (defaultFieldsToCollect, minimumFieldsToCollect) {
-        case (.all, _):
-            return defaultFieldsToCollect
-        case (_, .all):
-            return minimumFieldsToCollect
-        case (.countryAndPostal, _):
-            return defaultFieldsToCollect
-        case (_, .countryAndPostal):
-            return minimumFieldsToCollect
-        case (.country, .country):
-            return defaultFieldsToCollect
-        }
+        return defaultFieldsToCollect.widened(toMeet: minimumFieldsToCollect)
     }
 
     /// - Parameters:
@@ -469,6 +468,23 @@ import UIKit
 }
 
 private extension AddressSectionElement.FieldsToCollect {
+    /// Returns the option that collects at least the fields required by both values.
+    /// When both collect all fields, preserves `self`'s autocomplete configuration.
+    func widened(toMeet minimum: Self) -> Self {
+        switch (self, minimum) {
+        case (.all, _):
+            return self
+        case (_, .all):
+            return minimum
+        case (.countryAndPostal, _):
+            return self
+        case (_, .countryAndPostal):
+            return minimum
+        case (.country, .country):
+            return self
+        }
+    }
+
     var autocomplete: Autocomplete? {
         guard case .all(let autocomplete) = self else { return nil }
         return autocomplete

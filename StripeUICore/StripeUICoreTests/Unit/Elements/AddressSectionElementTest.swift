@@ -181,6 +181,36 @@ class AddressSectionElementTest: XCTestCase {
         XCTAssertDisplayed(sut.postalCode, in: sut)
     }
 
+    func testAddingMinimumFieldsToCollectByCountryNeverReducesExistingMinimums() {
+        // Given different existing minimums for US and CA
+        let sut = AddressSectionElement(
+            title: "",
+            countries: ["US", "CA"],
+            locale: locale_enUS,
+            addressSpecProvider: dummyAddressSpecProvider,
+            defaults: .init(address: .init(country: "US")),
+            defaultFieldsToCollect: .country,
+            minimumFieldsToCollectByCountry: [
+                "US": .all(autocomplete: .init()),
+                "CA": .country,
+            ]
+        )
+
+        // When adding a smaller US minimum and a larger CA minimum
+        sut.addMinimumFieldsToCollectByCountry([
+            "US": .countryAndPostal,
+            "CA": .countryAndPostal,
+        ])
+
+        // Then the US minimum and its autocomplete configuration are preserved
+        XCTAssertNotNil(sut.autoCompleteLine)
+
+        // ...and CA widens to collect its new postal-code minimum
+        sut.selectedCountryCode = "CA"
+        XCTAssertNotDisplayed(sut.line1, in: sut)
+        XCTAssertDisplayed(sut.postalCode, in: sut)
+    }
+
     func testUpdatingDefaultFieldsToCollectRebuildsCurrentCountry() {
         // Given an element collecting only country
         let sut = AddressSectionElement(
