@@ -80,7 +80,13 @@ extension PaymentMethodElementWrapper: PaymentMethodElement {
         guard !element.view.isHidden else {
             return params
         }
-        return paramsUpdater(element, params)
+        guard let params = paramsUpdater(element, params) else {
+            return nil
+        }
+        if let nestedPaymentMethodElement = element as? PaymentMethodElement {
+            return nestedPaymentMethodElement.updateParams(params: params)
+        }
+        return params
     }
 }
 

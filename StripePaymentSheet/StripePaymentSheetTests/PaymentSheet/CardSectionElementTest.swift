@@ -17,19 +17,58 @@ class CardSectionElementTest: XCTestCase {
 
     private func makeCardSectionElement(
         preferredNetworks: [STPCardBrand]? = nil,
-        cardBrandFilter: CardBrandFilter = .default
+        cardBrandFilter: CardBrandFilter = .default,
+        cardBrandChoiceEligible: Bool = true
     ) -> CardSectionElement {
         return CardSectionElement(
             collectName: false,
             defaultValues: .init(),
             preferredNetworks: preferredNetworks,
-            cardBrandChoiceEligible: true,
+            cardBrandChoiceEligible: cardBrandChoiceEligible,
             hostedSurface: .paymentSheet,
             theme: .default,
             analyticsHelper: ._testValue(),
             cardBrandFilter: cardBrandFilter,
             opensCardScannerAutomatically: false
         )
+    }
+
+    // MARK: - Element hierarchy
+
+    func testCBCSelectorIsChildOfPANElement() {
+        // Given
+        let cardSection = makeCardSectionElement()
+
+        // Then
+        let selector = cardSection.cardBrandChoiceElement
+        XCTAssertEqual(cardSection.panElement.elements.count, 1)
+        XCTAssertTrue(cardSection.panElement.getAllUnwrappedSubElements().contains { $0 === selector })
+        XCTAssertFalse(cardSection.cardSection.elements.contains { $0 is SectionElement.HiddenElement })
+        XCTAssertTrue(cardSection.debugDescription.contains("CardBrandChoiceElement"))
+    }
+
+    func testPANElementHasNoChildWhenCBCIsIneligible() {
+        // Given
+        let cardSection = makeCardSectionElement(cardBrandChoiceEligible: false)
+
+        // Then
+        XCTAssertNil(cardSection.cardBrandChoiceElement)
+        XCTAssertTrue(cardSection.panElement.elements.isEmpty)
+    }
+
+    func testCBCSelectorUpdatesPreferredNetworkParamsThroughPANHierarchy() {
+        // Given
+        let cardSection = makeCardSectionElement()
+        cardSection.panElement.setText(cbcVisaTestCard)
+        cardSection.expiryElement.setText("1232")
+        cardSection.cvcElement.setText("123")
+
+        // When
+        simulateTap(cardSection.cardBrandChoiceElement, brand: .cartesBancaires)
+        let params = cardSection.updateParams(params: IntentConfirmParams(type: .stripe(.card)))
+
+        // Then
+        XCTAssertEqual(params?.paymentMethodParams.card?.networks?.preferred, "cartes_bancaires")
     }
 
     /// Simulates a user tap on a brand

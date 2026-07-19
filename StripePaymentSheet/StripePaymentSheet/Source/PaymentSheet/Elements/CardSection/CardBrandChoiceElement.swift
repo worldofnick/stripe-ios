@@ -103,6 +103,16 @@ extension CardBrandChoiceElement: ElementDelegate {
     }
 }
 
+extension CardBrandChoiceElement {
+    var textFieldState: TextFieldElement.CardBrandChoiceState {
+        return TextFieldElement.CardBrandChoiceState(
+            selectedBrand: { [weak self] in self?.selectedBrand },
+            brandCount: { [weak self] in self?.brandCount ?? 0 },
+            allowedBrandCount: { [weak self] in self?.allowedBrandCount ?? 0 }
+        )
+    }
+}
+
 extension STPCardBrand {
     func makeCardBrandItem() -> SegmentedSelectorItem {
         return SegmentedSelectorItem(

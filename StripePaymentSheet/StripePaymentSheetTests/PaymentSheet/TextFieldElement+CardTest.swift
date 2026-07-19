@@ -588,7 +588,7 @@ class TextFieldElementCardTest: STPNetworkStubbingTestCase {
 
     func testAccessoryView_includesCartesBancairesWithCBC() {
         let cardBrandChoiceElement = CardBrandChoiceElement()
-        let configuration = TextFieldElement.PANConfiguration(cardBrandChoiceElement: cardBrandChoiceElement)
+        let configuration = TextFieldElement.PANConfiguration(cardBrandChoiceState: cardBrandChoiceElement.textFieldState)
         let view = configuration.accessoryView(for: "", theme: .default)
         let rotatingView = view as? RotatingCardBrandsView
         XCTAssertNotNil(rotatingView)

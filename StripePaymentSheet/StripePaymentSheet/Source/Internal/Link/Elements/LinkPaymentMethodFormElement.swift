@@ -158,10 +158,20 @@ final class LinkPaymentMethodFormElement: Element {
             lastFour: paymentMethod.cardDetails?.last4 ?? "",
             editConfiguration: isCoBranded ? .readOnlyWithoutDisabledAppearance : .readOnly,
             cardBrand: paymentMethod.cardDetails?.cardBrand,
-            cardBrandChoiceElement: cardBrandSelector?.element
+            cardBrandChoiceState: cardBrandSelector?.element.textFieldState
         )
+        let panAccessory = cardBrandSelector.map { selector in
+            let state = selector.element.textFieldState
+            return TextFieldElement.Accessory(element: selector) { _ in
+                return state.allowedBrandCount() > 1
+            }
+        }
 
-        return panElementConfig.makeElement(theme: LinkUI.appearance.asElementsTheme)
+        return TextFieldElement(
+            configuration: panElementConfig,
+            theme: LinkUI.appearance.asElementsTheme,
+            accessory: panAccessory
+        )
     }()
 
     private lazy var cvcElement: TextFieldElement = {
@@ -214,7 +224,7 @@ final class LinkPaymentMethodFormElement: Element {
     private lazy var cardSection: SectionElement = {
         let allElements: [Element?] = [
             nameOnCardElement,
-            panElement, SectionElement.HiddenElement(cardBrandSelector),
+            panElement,
             SectionElement.MultiElementRow([expiryDateElement, cvcElement], theme: theme),
         ]
         let elements = allElements.compactMap { $0 }

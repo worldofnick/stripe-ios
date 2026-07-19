@@ -1004,8 +1004,8 @@ extension PaymentSheetFormFactory {
                 }
                 return params
             },
-            paramsUpdater: { element, params in
-                return element.updateParams(params: params)
+            paramsUpdater: { _, params in
+                return params
             })
     }
 
