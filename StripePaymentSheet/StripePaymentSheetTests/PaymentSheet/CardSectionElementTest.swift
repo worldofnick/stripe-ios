@@ -56,6 +56,28 @@ class CardSectionElementTest: XCTestCase {
         XCTAssertTrue(cardSection.panElement.elements.isEmpty)
     }
 
+    func testCBCSelectorVisibilityUsesAllowedBrandCount() {
+        // Given
+        let cardSection = makeCardSectionElement()
+        let selector = cardSection.cardBrandChoiceElement
+        XCTAssertFalse(selector?.shouldShowPicker ?? true)
+        XCTAssertFalse(cardSection.panElement.viewModel.accessoryView === selector?.view)
+
+        // When
+        cardSection.panElement.setText(cbcVisaTestCard)
+
+        // Then
+        XCTAssertTrue(selector?.shouldShowPicker ?? false)
+        XCTAssertTrue(cardSection.panElement.viewModel.accessoryView === selector?.view)
+
+        // When
+        cardSection.panElement.setText(String(cbcVisaTestCard.prefix(7)))
+
+        // Then
+        XCTAssertFalse(selector?.shouldShowPicker ?? true)
+        XCTAssertFalse(cardSection.panElement.viewModel.accessoryView === selector?.view)
+    }
+
     func testCBCSelectorUpdatesPreferredNetworkParamsThroughPANHierarchy() {
         // Given
         let cardSection = makeCardSectionElement()

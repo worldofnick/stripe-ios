@@ -158,19 +158,13 @@ final class LinkPaymentMethodFormElement: Element {
             lastFour: paymentMethod.cardDetails?.last4 ?? "",
             editConfiguration: isCoBranded ? .readOnlyWithoutDisabledAppearance : .readOnly,
             cardBrand: paymentMethod.cardDetails?.cardBrand,
-            cardBrandChoiceState: cardBrandSelector?.element.textFieldState
+            cardBrandChoiceDataSource: cardBrandSelector?.element
         )
-        let panAccessory = cardBrandSelector.map { selector in
-            let state = selector.element.textFieldState
-            return TextFieldElement.Accessory(element: selector) { _ in
-                return state.allowedBrandCount() > 1
-            }
-        }
 
         return TextFieldElement(
             configuration: panElementConfig,
             theme: LinkUI.appearance.asElementsTheme,
-            accessory: panAccessory
+            accessory: cardBrandSelector?.textFieldAccessory
         )
     }()
 

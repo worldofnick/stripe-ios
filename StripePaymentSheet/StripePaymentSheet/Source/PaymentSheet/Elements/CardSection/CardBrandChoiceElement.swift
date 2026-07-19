@@ -103,13 +103,18 @@ extension CardBrandChoiceElement: ElementDelegate {
     }
 }
 
-extension CardBrandChoiceElement {
-    var textFieldState: TextFieldElement.CardBrandChoiceState {
-        return TextFieldElement.CardBrandChoiceState(
-            selectedBrand: { [weak self] in self?.selectedBrand },
-            brandCount: { [weak self] in self?.brandCount ?? 0 },
-            allowedBrandCount: { [weak self] in self?.allowedBrandCount ?? 0 }
-        )
+extension CardBrandChoiceElement: TextFieldElement.CardBrandChoiceDataSource {
+    var shouldShowPicker: Bool {
+        return allowedBrandCount > 1
+    }
+}
+
+extension PaymentMethodElementWrapper where WrappedElementType == CardBrandChoiceElement {
+    var textFieldAccessory: TextFieldElement.Accessory {
+        let cardBrandChoiceElement = element
+        return TextFieldElement.Accessory(element: self) { [weak cardBrandChoiceElement] _ in
+            return cardBrandChoiceElement?.shouldShowPicker ?? false
+        }
     }
 }
 

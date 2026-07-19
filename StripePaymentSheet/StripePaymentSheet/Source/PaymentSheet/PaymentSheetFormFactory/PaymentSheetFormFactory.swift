@@ -982,7 +982,7 @@ extension PaymentSheetFormFactory {
 
     func makeDefaultsApplierWrapper<T: PaymentMethodElement>(for element: T) -> PaymentMethodElementWrapper<T> {
         return PaymentMethodElementWrapper(
-            element,
+            updatingParamsFrom: element,
             defaultsApplier: { [configuration] _, params in
                 // Only apply defaults when the flag is on.
                 guard configuration.billingDetailsCollectionConfiguration.attachDefaultsToPaymentMethod else {

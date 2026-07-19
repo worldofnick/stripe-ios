@@ -46,18 +46,11 @@ extension SavedPaymentMethodFormFactory {
             let panElementConfig = TextFieldElement.LastFourConfiguration(lastFour: configuration.paymentMethod.card?.last4 ?? "",
                                                                           editConfiguration: cardBrandSelector != nil ? .readOnlyWithoutDisabledAppearance : .readOnly,
                                                                           cardBrand: configuration.paymentMethod.calculateCardBrandToDisplay(),
-                                                                          cardBrandChoiceState: cardBrandSelector?.element.textFieldState)
-            let panAccessory = cardBrandSelector.map { selector in
-                let state = selector.element.textFieldState
-                return TextFieldElement.Accessory(element: selector) { _ in
-                    return state.allowedBrandCount() > 1
-                }
-            }
-
+                                                                          cardBrandChoiceDataSource: cardBrandSelector?.element)
             let panElement = TextFieldElement(
                 configuration: panElementConfig,
                 theme: theme,
-                accessory: panAccessory
+                accessory: cardBrandSelector?.textFieldAccessory
             )
             return panElement
         }()

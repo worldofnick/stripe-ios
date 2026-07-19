@@ -121,23 +121,17 @@ final class CardSectionElement: ContainerElement {
         }
         let panConfiguration = TextFieldElement.PANConfiguration(
             defaultValue: defaultValues.pan,
-            cardBrandChoiceState: cardBrandSelector?.element.textFieldState,
+            cardBrandChoiceDataSource: cardBrandSelector?.element,
             cardBrandFilter: cardBrandFilter,
             cardFundingFilter: cardFundingFilter,
             fundingBinController: fundingBinController
         )
-        let panAccessory = cardBrandSelector.map { selector in
-            let state = selector.element.textFieldState
-            return TextFieldElement.Accessory(element: selector) { text in
-                return !text.isEmpty && text.count >= 8 && state.allowedBrandCount() > 1
-            }
-        }
         let panTextField = TextFieldElement(
             configuration: panConfiguration,
             theme: theme,
-            accessory: panAccessory
+            accessory: cardBrandSelector?.textFieldAccessory
         )
-        let panElement = PaymentMethodElementWrapper(panTextField) { field, params in
+        let panElement = PaymentMethodElementWrapper(updatingParamsFrom: panTextField) { field, params in
             cardParams(for: params).number = field.text
             return params
         }
