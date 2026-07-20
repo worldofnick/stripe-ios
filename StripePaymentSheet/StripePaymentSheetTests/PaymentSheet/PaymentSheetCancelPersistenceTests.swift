@@ -81,6 +81,10 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
             analyticsHelper: sheet.analyticsHelper
         )
         viewController.loadViewIfNeeded()
+        var didComplete = false
+        sheet.completion = { _ in
+            didComplete = true
+        }
 
         // When the customer selects card B and then cancels
         viewController.didTapPaymentMethod(.saved(paymentMethod: cardB))
@@ -88,12 +92,14 @@ final class PaymentSheetCancelPersistenceTests: XCTestCase {
 
         // Then the in-flight dismissal leaves card B persisted
         XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .stripeId(cardB.stripeId))
+        XCTAssertFalse(didComplete)
 
         // When dismissal finishes
         viewController.completeDismissal()
 
         // Then the persisted selection reverts to card A
         XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: customerID), .stripeId(cardA.stripeId))
+        XCTAssertTrue(didComplete)
     }
 
     func testSnapshotDoesNotRestoreDeletedSavedPaymentMethod() {
