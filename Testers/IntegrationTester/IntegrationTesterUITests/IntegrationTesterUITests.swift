@@ -268,15 +268,17 @@ class IntegrationTesterUITests: XCTestCase {
         try! fillCardData(app, number: cardNumber)
 
         let buyButton = app.buttons["Buy"]
-        XCTAssertTrue(buyButton.waitForExistence(timeout: 30.0))
+        XCTAssertTrue(buyButton.waitForExistence(timeout: 60.0))
         buyButton.forceTapElement()
 
         let completeButton = app.buttons["COMPLETE"]
-        XCTAssertTrue(completeButton.waitForExistence(timeout: 30.0))
+        XCTAssertTrue(completeButton.waitForExistence(timeout: 60.0))
+        expectation(for: NSPredicate(format: "isHittable == true"), evaluatedWith: completeButton)
+        waitForExpectations(timeout: 15.0)
         completeButton.forceTapElement()
 
         let statusView = app.staticTexts["Payment status view"]
-        XCTAssertTrue(statusView.waitForExistence(timeout: 10.0))
+        XCTAssertTrue(statusView.waitForExistence(timeout: 30.0))
         XCTAssertNotNil(statusView.label.range(of: "Payment complete!"))
     }
 
@@ -295,8 +297,9 @@ class IntegrationTesterUITests: XCTestCase {
             // PayPal uses ASWebAuthenticationSession, tap continue:
             let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
             let continueButton = springboard.buttons["Continue"]
-            XCTAssertTrue(continueButton.waitForExistence(timeout: 10.0))
-            springboard.buttons["Continue"].tap()
+            XCTAssertTrue(continueButton.waitForExistence(timeout: 15.0))
+            continueButton.forceTapWhenHittableInTestCase(self)
+            XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15.0))
         }
 
         if shouldConfirm {

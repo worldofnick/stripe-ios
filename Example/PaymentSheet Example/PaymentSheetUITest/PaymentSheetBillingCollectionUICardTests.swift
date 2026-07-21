@@ -8,6 +8,21 @@
 import XCTest
 
 class PaymentSheetBillingCollectionUICardTests: PaymentSheetBillingCollectionUITestCase {
+    private func waitForAnalyticsEvent(_ eventName: String, timeout: TimeInterval = 10.0) -> [String: Any]? {
+        if let event = analyticsLog.last(where: { $0[string: "event"] == eventName }) {
+            return event
+        }
+
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label CONTAINS %@", eventName),
+            object: analyticsLogElement
+        )
+        guard XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed else {
+            return nil
+        }
+        return analyticsLog.last(where: { $0[string: "event"] == eventName })
+    }
+
     func testCard_AllFields_flowController_WithDefaults() throws {
 
         var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
@@ -153,23 +168,23 @@ class PaymentSheetBillingCollectionUICardTests: PaymentSheetBillingCollectionUIT
 
         // Fill billing address using autocomplete
         app.textFields["Address"].waitForExistenceAndTap()
-        XCTAssertTrue(analyticsLog.compactMap { $0[string: "event"] }.contains("mc_address_autocomplete_start"))
+        XCTAssertNotNil(waitForAnalyticsEvent("mc_address_autocomplete_start"))
         app.typeText("354 Oyster Point")
 
         let searchedCell = app.tables.element(boundBy: 0).cells.containing(NSPredicate(format: "label CONTAINS %@", "354 Oyster Point Boulevard")).element
         XCTAssertTrue(searchedCell.waitForExistence(timeout: 5))
-        XCTAssertNotNil(analyticsLog.last { $0[string: "event"] == "mc_address_autocomplete_suggestions" })
+        XCTAssertNotNil(waitForAnalyticsEvent("mc_address_autocomplete_suggestions"))
         searchedCell.tap()
 
         // Wait for address details to populate
         XCTAssertTrue(line1Field.waitForExistence(timeout: 5))
-        XCTAssertNotNil(analyticsLog.last { $0[string: "event"] == "mc_address_autocomplete_complete" })
+        XCTAssertNotNil(waitForAnalyticsEvent("mc_address_autocomplete_complete"))
 
         continueButton.tap()
         confirmButton.waitForExistenceAndTap()
         XCTAssertTrue(successText.waitForExistence(timeout: 10.0))
 
-        if let completedEvent = analyticsLog.first(where: { $0[string: "event"] == "mc_billing_address_completed" }),
+        if let completedEvent = waitForAnalyticsEvent("mc_billing_address_completed"),
            let blob = completedEvent["address_data_blob"] as? [String: Any] {
             XCTAssertEqual(blob["auto_complete_result_selected"] as? Bool, true)
             XCTAssertEqual(blob["edit_distance"] as? Int, 0)

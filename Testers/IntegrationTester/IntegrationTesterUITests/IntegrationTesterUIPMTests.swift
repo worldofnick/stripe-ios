@@ -158,7 +158,10 @@ class IntegrationTesterUIPMTests: IntegrationTesterUITests {
         let tablesQuery = app.collectionViews
 
         let rowForPaymentMethod = tablesQuery.cells.buttons[IntegrationMethod.klarna.rawValue]
-        rowForPaymentMethod.scrollToAndTap(in: app)
+        XCTAssertTrue(
+            rowForPaymentMethod.scrollToAndTap(in: app, scrolling: tablesQuery.firstMatch),
+            "Klarna row never became hittable"
+        )
 
         let buyButton = app.buttons["Buy"]
         XCTAssertTrue(buyButton.waitForExistence(timeout: 10.0))

@@ -24,18 +24,36 @@ extension XCUIElement {
         }
     }
 
-    func scrollToAndTap(in app: XCUIApplication, maxScrolls: Int = 20) {
-        // Keep scrolling until the element is actually hittable, not just present in the
-        // accessibility hierarchy. An element `exists` the moment it's partially onscreen
-        // (e.g. peeking in at the bottom edge), but tapping it there is unreliable because
-        // the tap point may be clipped or obscured. Bound the loop so a missing element
-        // fails fast instead of scrolling forever.
+    @discardableResult
+    func scrollToAndTap(
+        in app: XCUIApplication,
+        scrolling scrollElement: XCUIElement? = nil,
+        maxScrolls: Int = 20
+    ) -> Bool {
+        // XCTest can report a partially clipped element as hittable even when its activation
+        // point is outside the visible scroll container. When a container is supplied, require
+        // the entire element frame to be visible before tapping.
+        let isReadyToTap = {
+            guard self.isHittable else {
+                return false
+            }
+            guard let scrollElement else {
+                return true
+            }
+            let visibleFrame = scrollElement.frame.intersection(app.frame)
+            return visibleFrame.contains(self.frame)
+        }
+
         var scrolls = 0
-        while !self.isHittable && scrolls < maxScrolls {
-            app.swipeUp()
+        while !isReadyToTap() && scrolls < maxScrolls {
+            (scrollElement ?? app).swipeUp()
             scrolls += 1
         }
+        guard isReadyToTap() else {
+            return false
+        }
         self.forceTapElement()
+        return true
     }
 
     func forceTapWhenHittableInTestCase(_ testCase: XCTestCase) {
