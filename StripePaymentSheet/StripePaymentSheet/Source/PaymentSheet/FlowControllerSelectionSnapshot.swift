@@ -10,48 +10,58 @@ import Foundation
 
 /// Captures the selection when payment options open so it can be restored if the customer cancels.
 internal struct FlowControllerSelectionSnapshot {
-    enum ViewControllerRestoration {
-        /// The current view controller already represents the captured selection. Reuse it to
-        /// preserve form state that is not represented by PaymentOption.
-        case reuseCurrentViewController
-        /// Rebuild the view controller to discard canceled changes and restore this payment option.
-        case rebuildViewController(restoring: PaymentOption?)
+    struct Selection {
+        /// The payment option that should be selected after cancellation.
+        var paymentOption: PaymentOption?
+        /// Completed form input used if restoring that option requires rebuilding the controller.
+        /// This is separate because horizontal can select Link while retaining a completed form
+        /// behind the Link header.
+        let formConfirmParams: IntentConfirmParams?
     }
 
-    private let paymentOption: PaymentOption?
+    private let selection: Selection
     private let persistedSelection: CustomerPaymentOption.PersistedSelectionSnapshot
 
     init(viewController: FlowControllerViewControllerProtocol, customerID: String?) {
-        self.paymentOption = viewController.selectedPaymentOption
+        self.selection = .init(
+            paymentOption: viewController.selectedPaymentOption,
+            formConfirmParams: viewController.formConfirmParamsForCancellationRestoration
+        )
         self.persistedSelection = .init(
             customerID: customerID,
             availableSavedPaymentMethods: viewController.savedPaymentMethods
         )
     }
 
-    func viewControllerRestoration(
-        using viewController: FlowControllerViewControllerProtocol
-    ) -> ViewControllerRestoration {
-        persistedSelection.revertPersistedSelection(using: viewController.savedPaymentMethods)
+    /// Reverts the saved-method selection persisted while payment options were open.
+    func revertPersistedSelection(using savedPaymentMethods: [STPPaymentMethod]) {
+        persistedSelection.revertPersistedSelection(using: savedPaymentMethods)
+    }
 
-        var paymentOptionToRestore = paymentOption
+    /// Returns the captured selection when the current view controller must be rebuilt to restore it.
+    /// Returns nil when the current controller can be reused to preserve form state not represented
+    /// by PaymentOption.
+    func selectionForRebuilding(
+        using viewController: FlowControllerViewControllerProtocol
+    ) -> Selection? {
+        var selectionToRestore = selection
         // Form-backed `.saved` options are not expected in savedPaymentMethods. For ordinary
         // saved options, however, a missing payment method means it was deleted while the sheet
         // was open and should not be restored.
-        if case let .saved(paymentMethod, confirmParams) = paymentOptionToRestore,
-           confirmParams?.isFormBackedSavedPaymentMethod != true,
+        if case let .saved(paymentMethod, confirmParams) = selectionToRestore.paymentOption,
+           confirmParams?.instantDebitsLinkedBank == nil,
            !viewController.savedPaymentMethods.contains(where: { $0.stripeId == paymentMethod.stripeId }) {
             // Deletion is not canceled. Keep the fallback selected by the saved-method manager.
-            paymentOptionToRestore = viewController.selectedPaymentOption
+            selectionToRestore.paymentOption = viewController.selectedPaymentOption
         }
 
-        switch (paymentOptionToRestore, viewController.selectedPaymentOption) {
+        switch (selectionToRestore.paymentOption, viewController.selectedPaymentOption) {
         case (nil, nil):
-            return .reuseCurrentViewController
+            return nil
         case (.link(.wallet)?, .link(.wallet)?):
-            return .reuseCurrentViewController
+            return nil
         default:
-            return .rebuildViewController(restoring: paymentOptionToRestore)
+            return selectionToRestore
         }
     }
 }
