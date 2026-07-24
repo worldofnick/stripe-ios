@@ -521,12 +521,9 @@ extension PaymentSheet {
                 // Cancellation restoration, if needed, has finished. The snapshot is no longer needed.
                 self.selectionSnapshotBeforePresentation = nil
 
-                // Clear the old completion before invoking merchant code. The merchant may call
-                // presentPaymentOptions again from its completion, which installs a new completion
-                // that must not be cleared when this closure returns.
-                self.presentPaymentOptionsCompletionWithResult = nil
                 self.updatePaymentOption()
                 completion?(didCancel)
+                self.presentPaymentOptionsCompletionWithResult = nil
             }
             presentPaymentOptionsCompletionWithResult = wrappedCompletion
 

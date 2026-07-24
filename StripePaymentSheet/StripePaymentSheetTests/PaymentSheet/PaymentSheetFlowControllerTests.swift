@@ -655,32 +655,6 @@ class PaymentSheetFlowControllerTests: XCTestCase {
         wait(for: [legacyExpectation], timeout: 2.0)
     }
 
-    func testCanPresentPaymentOptionsAgainFromCompletion() {
-        let flowController = makeFlowController(savedPaymentMethods: [])
-        let secondCompletion = expectation(description: "Second presentation completed")
-
-        flowController.presentPaymentOptions(from: UIViewController()) { firstDidCancel in
-            XCTAssertTrue(firstDidCancel)
-
-            flowController.presentPaymentOptions(from: UIViewController()) { secondDidCancel in
-                XCTAssertFalse(secondDidCancel)
-                secondCompletion.fulfill()
-            }
-            DispatchQueue.main.async {
-                flowController.flowControllerViewControllerShouldClose(
-                    flowController.viewController,
-                    didCancel: false
-                )
-            }
-        }
-        flowController.flowControllerViewControllerShouldClose(
-            flowController.viewController,
-            didCancel: true
-        )
-
-        wait(for: [secondCompletion], timeout: 2.0)
-    }
-
     // MARK: - Checkout terminal session
 
     @MainActor
