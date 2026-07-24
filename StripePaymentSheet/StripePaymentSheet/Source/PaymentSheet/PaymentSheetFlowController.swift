@@ -56,7 +56,7 @@ extension PaymentSheet {
             }
         }
 
-        /// Returns completed form input needed to rebuild FlowController after payment-options
+        /// Returns completed form input needed to rebuild a form-backed payment option after
         /// cancellation. Unlike `newConfirmParams`, this includes form-backed saved methods and
         /// Link signup.
         var formConfirmParamsForCancellationRestoration: IntentConfirmParams? {
