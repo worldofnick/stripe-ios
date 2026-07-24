@@ -930,10 +930,6 @@ extension PaymentSheet {
                 initialState: .restoringAfterCancellation(selection)
             )
             self.viewController.flowControllerDelegate = self
-            if selection.paymentOption == nil {
-                // Initialization may select a default, but cancellation must restore the captured nil.
-                self.viewController.clearSelection()
-            }
         }
 
         /// Updates the published paymentOption property based on the current state
