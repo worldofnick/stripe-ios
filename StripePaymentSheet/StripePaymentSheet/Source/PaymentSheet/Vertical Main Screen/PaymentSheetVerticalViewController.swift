@@ -89,21 +89,6 @@ class PaymentSheetVerticalViewController: UIViewController, FlowControllerViewCo
     let isFlowController: Bool
     /// The selection used to seed this controller when it is rebuilt.
     private var previousPaymentOption: PaymentOption?
-    private var previousFormConfirmParams: IntentConfirmParams? {
-        guard let previousPaymentOption else {
-            return nil
-        }
-        switch previousPaymentOption {
-        case .saved(_, let confirmParams):
-            return confirmParams?.isFormBackedSavedPaymentMethod == true ? confirmParams : nil
-        case .new, .external:
-            return previousPaymentOption.newConfirmParams
-        case .link(let confirmOption):
-            return confirmOption.signupConfirmParams
-        case .applePay:
-            return nil
-        }
-    }
     weak var flowControllerDelegate: FlowControllerViewControllerDelegate?
     weak var paymentSheetDelegate: PaymentSheetViewControllerDelegate?
     let shouldShowApplePayInList: Bool
@@ -247,7 +232,29 @@ class PaymentSheetVerticalViewController: UIViewController, FlowControllerViewCo
             let paymentMethodListViewController = makePaymentMethodListViewController(selection: updatedListSelection)
             self.paymentMethodListViewController = paymentMethodListViewController
 
-            if let confirmParams = previousFormConfirmParams,
+            let confirmParams: IntentConfirmParams? = {
+                guard let paymentOption = previousPaymentOption else {
+                    return nil
+                }
+                switch paymentOption {
+                case .saved(_, let confirmParams):
+                    if let confirmParams {
+                        return confirmParams
+                    } else {
+                        return nil
+                    }
+                case .new(let confirmParams):
+                    return confirmParams
+                case .link(let confirmOption):
+                    return confirmOption.signupConfirmParams
+                case .external:
+                    return paymentOption.newConfirmParams
+                case .applePay:
+                    return nil
+                }
+            }()
+
+            if let confirmParams,
                 paymentMethodTypes.contains(confirmParams.paymentMethodType),
                 shouldDisplayForm(for: confirmParams.paymentMethodType)
             {
@@ -942,6 +949,19 @@ extension PaymentSheetVerticalViewController: VerticalPaymentMethodListViewContr
     }
 
     private func makeFormVC(paymentMethodType: PaymentSheet.PaymentMethodType) -> PaymentMethodFormViewController {
+        let previousCustomerInput: IntentConfirmParams? = {
+            if case let .new(confirmParams: confirmParams) = previousPaymentOption {
+                return confirmParams
+            } else if case let .saved(_, confirmParams) = previousPaymentOption {
+                return confirmParams
+            } else if case let .link(confirmOption) = previousPaymentOption {
+                return confirmOption.signupConfirmParams
+            } else if case .external = previousPaymentOption {
+                return previousPaymentOption?.newConfirmParams
+            } else {
+                return nil
+            }
+        }()
         let previousLinkInlineSignupAction: LinkInlineSignupViewModel.Action? = {
             if case let .link(confirmOption) = previousPaymentOption {
                 return confirmOption.signupAction
@@ -996,7 +1016,7 @@ extension PaymentSheetVerticalViewController: VerticalPaymentMethodListViewContr
             type: paymentMethodType,
             intent: intent,
             elementsSession: elementsSession,
-            previousCustomerInput: previousFormConfirmParams,
+            previousCustomerInput: previousCustomerInput,
             formCache: formCache,
             configuration: configuration,
             paymentMethodOrientation: loadResult.paymentMethodOrientation,
