@@ -113,6 +113,17 @@ public final class PaymentElement {
         )
         paymentOptionSourceOfTruthIsFlowController = false // We used embedded's payment option
     }
+
+    func syncInitialSavedPaymentOptionBillingAddress() async throws {
+        guard let checkout,
+              let initialPaymentOption = embeddedPaymentElement._paymentOption,
+              case .saved = initialPaymentOption else {
+            return
+        }
+        try await checkout.syncBillingAddress(
+            from: initialPaymentOption.checkoutBillingDetails
+        )
+    }
 }
 
 // MARK: - Checkout Updates

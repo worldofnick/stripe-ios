@@ -9,10 +9,10 @@ import Foundation
 @_spi(STP) import StripePayments
 
 extension PaymentOption {
-    /// The billing details used to sync a CheckoutSession's billing address for tax calculation.
+    /// The billing details used to update a Checkout Session's automatic-tax region.
     ///
-    /// This is only read on CheckoutSession confirm paths (see `Checkout.syncBillingAddress(from:)`);
-    /// other flows never consume it.
+    /// This is only read by Checkout Session flows when updating automatic tax from the selected
+    /// payment option's billing address.
     var checkoutBillingDetails: STPPaymentMethodBillingDetails? {
         switch self {
         case .new(let confirmParams):

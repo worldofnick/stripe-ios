@@ -5,6 +5,7 @@
 //  Created by Yuki Tokuhiro on 7/15/26.
 //
 
+import OHHTTPStubs
 @testable @_spi(STP) import StripeCore
 @testable @_spi(STP) import StripePayments
 @testable @_spi(STP) import StripePaymentSheet
@@ -98,6 +99,90 @@ final class PaymentElementTest: XCTestCase {
         XCTAssertEqual(paymentElement.embeddedPaymentElement.configuration.billingDetailsCollectionConfiguration.address, .full)
     }
 
+    func testInitialSavedPaymentOptionUpdatesCheckoutBillingTaxRegion() async throws {
+        // Given a Checkout Session with automatic tax sourced from billing and a saved card...
+        let previousDefaultPaymentMethod = CustomerPaymentOption.localDefaultPaymentMethod(for: nil)
+        CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: nil)
+        let (configuration, requestRecorder) = try stubAutomaticTaxSavedCardCheckout(
+            billingCountry: "US",
+            updateStatusCode: 200
+        )
+        defer {
+            CustomerPaymentOption.setDefaultPaymentMethod(previousDefaultPaymentMethod, forCustomer: nil)
+            HTTPStubs.removeAllStubs()
+        }
+
+        // When Checkout loads its PaymentElement...
+        let checkout = try await Checkout(configuration: configuration)
+
+        // Then the saved card's billing address is used to update the tax region.
+        let requests = requestRecorder.requests
+        XCTAssertEqual(requests.map(\.kind), [.initSession, .updateSession])
+        let updateRequest = try XCTUnwrap(requests.first { $0.kind == .updateSession })
+        XCTAssertEqual(updateRequest.params["tax_region[country]"], "US")
+        XCTAssertEqual(updateRequest.params["tax_region[line1]"], "354 Oyster Point Blvd")
+        XCTAssertEqual(updateRequest.params["tax_region[city]"], "South San Francisco")
+        XCTAssertEqual(updateRequest.params["tax_region[state]"], "CA")
+        XCTAssertEqual(updateRequest.params["tax_region[postal_code]"], "94080")
+
+        // ...and the saved card remains selected after PaymentElement refreshes.
+        guard case .saved = checkout.getPaymentElement().embeddedPaymentElement._paymentOption else {
+            return XCTFail("Expected the saved card to remain selected")
+        }
+        let paymentOption = try XCTUnwrap(checkout.session.paymentOption)
+        XCTAssertEqual(paymentOption.label, "•••• 4242")
+        XCTAssertEqual(paymentOption.billingDetails?.address.country, "US")
+    }
+
+    func testInitialSavedPaymentOptionWithoutBillingCountryDoesNotUpdateTaxRegion() async throws {
+        // Given a Checkout Session with a saved card whose billing address has no country...
+        let previousDefaultPaymentMethod = CustomerPaymentOption.localDefaultPaymentMethod(for: nil)
+        CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: nil)
+        let (configuration, requestRecorder) = try stubAutomaticTaxSavedCardCheckout(
+            billingCountry: nil,
+            updateStatusCode: 200
+        )
+        defer {
+            CustomerPaymentOption.setDefaultPaymentMethod(previousDefaultPaymentMethod, forCustomer: nil)
+            HTTPStubs.removeAllStubs()
+        }
+
+        // When Checkout loads its PaymentElement...
+        let checkout = try await Checkout(configuration: configuration)
+
+        // Then it keeps the saved card selected without sending a tax region update.
+        XCTAssertEqual(requestRecorder.requests.map(\.kind), [.initSession])
+        XCTAssertEqual(checkout.session.paymentOption?.label, "•••• 4242")
+    }
+
+    func testInitialSavedPaymentOptionTaxRegionUpdateFailureFailsCheckoutInitialization() async throws {
+        // Given a Checkout Session whose saved card tax region update fails...
+        let previousDefaultPaymentMethod = CustomerPaymentOption.localDefaultPaymentMethod(for: nil)
+        CustomerPaymentOption.setDefaultPaymentMethod(nil, forCustomer: nil)
+        let (configuration, requestRecorder) = try stubAutomaticTaxSavedCardCheckout(
+            billingCountry: "US",
+            updateStatusCode: 500
+        )
+        defer {
+            CustomerPaymentOption.setDefaultPaymentMethod(previousDefaultPaymentMethod, forCustomer: nil)
+            HTTPStubs.removeAllStubs()
+        }
+
+        // When Checkout loads its PaymentElement...
+        do {
+            _ = try await Checkout(configuration: configuration)
+            XCTFail("Expected CheckoutError.apiError")
+        } catch let error as CheckoutError {
+            // Then initialization fails with an API error.
+            guard case .apiError = error else {
+                return XCTFail("Expected CheckoutError.apiError, got \(error)")
+            }
+        } catch {
+            XCTFail("Unexpected error type: \(error)")
+        }
+        XCTAssertEqual(requestRecorder.requests.map(\.kind), [.initSession, .updateSession])
+    }
+
     func testCheckoutSessionUpdatePreservesFlowControllerPaymentOption() async throws {
         // Given a Checkout PaymentElement with PayNow available in the real FlowController sheet UI...
         var configuration = Checkout.Configuration(clientSecret: "cs_test_123_secret_abc")
@@ -166,6 +251,42 @@ final class PaymentElementTest: XCTestCase {
         XCTAssertNil(weakPaymentElement)
         XCTAssertNil(weakFlowController)
         XCTAssertNil(weakEmbeddedPaymentElement)
+    }
+
+    private func stubAutomaticTaxSavedCardCheckout(
+        billingCountry: String?,
+        updateStatusCode: Int32
+    ) throws -> (
+        configuration: Checkout.Configuration,
+        requestRecorder: CheckoutSessionRequestRecorder
+    ) {
+        var sessionJSON = STPTestUtils.jsonNamed("CheckoutSession")!
+        var customer = try XCTUnwrap(sessionJSON["customer"] as? [AnyHashable: Any])
+        var paymentMethods = try XCTUnwrap(customer["payment_methods"] as? [[AnyHashable: Any]])
+        var savedCard = try XCTUnwrap(paymentMethods.first)
+        var billingDetails = try XCTUnwrap(savedCard["billing_details"] as? [AnyHashable: Any])
+        var billingAddress = try XCTUnwrap(billingDetails["address"] as? [AnyHashable: Any])
+        billingAddress["country"] = billingCountry
+        billingDetails["address"] = billingAddress
+        savedCard["billing_details"] = billingDetails
+        paymentMethods[0] = savedCard
+        customer["payment_methods"] = paymentMethods
+        sessionJSON["customer"] = customer
+        let session = try XCTUnwrap(PaymentPagesAPIResponse.decodedObject(fromAPIResponse: sessionJSON))
+        let clientSecret = try XCTUnwrap(session.clientSecret)
+        let requestRecorder = CheckoutSessionRequestRecorder()
+        var configuration = Checkout.Configuration(clientSecret: clientSecret)
+        configuration.apiClient = CheckoutTestHelpers.makeStubbedAPIClient(
+            apiResponse: session,
+            clientSecret: clientSecret
+        )
+        CheckoutTestHelpers.stubCheckoutSessionRequests(
+            sessionId: session.id,
+            requestRecorder: requestRecorder,
+            sessionJSON: { sessionJSON },
+            updateStatusCode: updateStatusCode
+        )
+        return (configuration, requestRecorder)
     }
 
     private static func makeOpenSession(paymentMethodTypes: [String]) -> PaymentPagesAPIResponse {

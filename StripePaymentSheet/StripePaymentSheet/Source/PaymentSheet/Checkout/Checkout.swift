@@ -103,7 +103,8 @@ public final class Checkout: ObservableObject {
     /// Loads a Checkout Session from Stripe and returns a ready-to-use instance.
     ///
     /// - Parameter configuration: Configuration options for the checkout.
-    /// - Throws: ``CheckoutError`` if the client secret is invalid or the session cannot be loaded.
+    /// - Throws: ``CheckoutError`` if the client secret is invalid, the session cannot be loaded,
+    ///   or an initialization update fails.
     public init(configuration: Configuration) async throws {
         let clientSecret = configuration.clientSecret
         guard !clientSecret.isEmpty else {
@@ -126,7 +127,9 @@ public final class Checkout: ObservableObject {
             try await applyDefaults()
 
             // Load elements
-            self.paymentElement = try await PaymentElement(checkout: self)
+            let paymentElement = try await PaymentElement(checkout: self)
+            self.paymentElement = paymentElement
+            try await paymentElement.syncInitialSavedPaymentOptionBillingAddress()
             await flagImageManager.prefetchFlagImages(for: session) // TODO: This should probably just load currency selector and not be a global singleton
 
         } catch {
