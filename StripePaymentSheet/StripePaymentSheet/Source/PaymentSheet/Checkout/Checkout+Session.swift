@@ -79,6 +79,10 @@ extension Checkout {
         // MARK: - Internal Properties
 
         let mode: Checkout.Mode
+        /// The top-level payment status, which is present even when ``status`` is omitted.
+        let paymentStatus: Checkout.PaymentStatus
+        /// `total_summary.due`, used as `expected_amount` for payment-style confirmation.
+        let amountDue: Int?
         let paymentMethodOptions: STPPaymentMethodOptions?
         let customer: STPCheckoutSessionCustomer?
         let savedPaymentMethodsOfferSave: STPCheckoutSessionSavedPaymentMethodsOfferSave?

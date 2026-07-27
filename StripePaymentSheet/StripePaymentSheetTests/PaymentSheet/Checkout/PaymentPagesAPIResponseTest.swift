@@ -64,6 +64,8 @@ class PaymentPagesAPIResponseTest: XCTestCase {
         XCTAssertEqual(session.currency, "usd")
         XCTAssertEqual(session.minorUnitsAmountDivisor, 100)
         XCTAssertEqual(session.mode, .payment)
+        XCTAssertEqual(session.paymentStatus, .unpaid)
+        XCTAssertEqual(session.amountDue, 2686)
         XCTAssertEqual(session.status?.type, .open)  // status is nullable but present in JSON
         XCTAssertEqual(session.status?.paymentStatus, .unpaid)
         XCTAssertEqual(session.paymentIntentId, "pi_test123456789")
@@ -220,6 +222,53 @@ class PaymentPagesAPIResponseTest: XCTestCase {
         XCTAssertEqual(session.status?.paymentStatus, .noPaymentRequired)
         XCTAssertEqual(session.setupIntentId, "seti_test123456")
         XCTAssertNil(session.paymentIntentId)
+    }
+
+    func testDisplayAndConfirmationAmountsForPaymentMode() {
+        let session = CheckoutTestHelpers.makeSession([
+            "mode": "payment",
+            "payment_status": "unpaid",
+            "total_summary": ["subtotal": 2500, "total": 2200, "due": 1700],
+        ]).makePublicSession()
+
+        XCTAssertFalse(session.isSetupStyle)
+        XCTAssertEqual(session.displayAmount(), 2200)
+        XCTAssertEqual(session.expectedAmountForConfirm(), 1700)
+    }
+
+    func testSetupModeOmitsDisplayAndConfirmationAmounts() {
+        let session = CheckoutTestHelpers.makeSession([
+            "mode": "setup",
+            "payment_status": "no_payment_required",
+            "total_summary": ["subtotal": 0, "total": 0, "due": 0],
+        ]).makePublicSession()
+
+        XCTAssertTrue(session.isSetupStyle)
+        XCTAssertNil(session.displayAmount())
+        XCTAssertNil(session.expectedAmountForConfirm())
+    }
+
+    func testClassicZeroCostPaymentRemainsPaymentStyle() {
+        let session = CheckoutTestHelpers.makeSession([
+            "mode": "payment",
+            "payment_status": "no_payment_required",
+            "total_summary": ["subtotal": 0, "total": 0, "due": 0],
+        ]).makePublicSession()
+
+        XCTAssertFalse(session.isSetupStyle)
+        XCTAssertEqual(session.displayAmount(), 0)
+        XCTAssertEqual(session.expectedAmountForConfirm(), 0)
+    }
+
+    func testUnknownModeFallsBackToPaymentStatus() {
+        let session = CheckoutTestHelpers.makeSession([
+            "mode": "modeless",
+            "payment_status": "no_payment_required",
+            "total_summary": ["subtotal": 0, "total": 0, "due": 0],
+        ]).makePublicSession()
+
+        XCTAssertEqual(session.mode, .unknown)
+        XCTAssertTrue(session.isSetupStyle)
     }
 
     func testDecodedObjectParsesTopLevelSetupFutureUsage() {

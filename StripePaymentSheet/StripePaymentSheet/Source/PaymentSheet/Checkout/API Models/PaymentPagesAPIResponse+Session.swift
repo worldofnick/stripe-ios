@@ -36,6 +36,8 @@ extension PaymentPagesAPIResponse {
             tax: tax,
             total: total,
             mode: mode,
+            paymentStatus: paymentStatus,
+            amountDue: amountDue,
             paymentMethodOptions: paymentMethodOptions,
             customer: customer,
             savedPaymentMethodsOfferSave: savedPaymentMethodsOfferSave,

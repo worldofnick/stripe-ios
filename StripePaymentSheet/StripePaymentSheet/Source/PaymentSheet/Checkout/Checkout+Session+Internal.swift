@@ -26,6 +26,21 @@ extension Checkout.Session {
     var collectsTaxFromBillingAddress: Bool {
         return shouldSendTaxRegion(for: "billing")
     }
+
+    /// Whether confirmation follows setup-style semantics.
+    ///
+    /// Classic Checkout modes remain authoritative. Modeless sessions surface as ``Mode.unknown``,
+    /// so they fall back to the always-present top-level payment status.
+    var isSetupStyle: Bool {
+        switch mode {
+        case .setup:
+            return true
+        case .payment, .subscription:
+            return false
+        case .unknown:
+            return paymentStatus == .noPaymentRequired
+        }
+    }
 }
 
 // MARK: - Methods
@@ -38,22 +53,28 @@ extension Checkout.Session {
         return automaticTaxEnabled && automaticTaxAddressSource == addressType
     }
 
-    /// Returns the expectedAmount if in `payment` mode, `nil` if in `setup` mode, and asserts
-    /// if in `subscription` or `unknown` mode.
-    func expectedAmount() -> Int? {
-        switch mode {
-        case .payment:
-            guard let total = total?.total.minorUnitsAmount else {
-                stpAssertionFailure("Missing expected amount from checkout session")
-                return nil
-            }
-            return total
-        case .setup:
-            return nil
-        case .unknown, .subscription:
-            stpAssertionFailure("Unknown and subscription modes are not currently supported with checkout sessions")
+    /// The amount to display for payment-style sessions.
+    ///
+    /// This deliberately differs from ``expectedAmountForConfirm()``: display uses the order
+    /// total, while confirmation uses the server's current amount due.
+    func displayAmount() -> Int? {
+        guard !isSetupStyle else { return nil }
+        guard let amount = total?.total.minorUnitsAmount else {
+            stpAssertionFailure("Missing display amount from a payment-style checkout session")
             return nil
         }
+        return amount
+    }
+
+    /// The `expected_amount` to send when confirming a payment-style session. The confirm
+    /// endpoint does not accept this parameter for setup-style sessions.
+    func expectedAmountForConfirm() -> Int? {
+        guard !isSetupStyle else { return nil }
+        guard let amountDue else {
+            stpAssertionFailure("Missing total_summary.due from a payment-style checkout session")
+            return nil
+        }
+        return amountDue
     }
 
     func merchantWillSavePaymentMethod(_ paymentMethodType: STPPaymentMethodType) -> Bool {
@@ -61,18 +82,14 @@ extension Checkout.Session {
             return false
         }
 
-        switch mode {
-        case .setup:
+        if isSetupStyle {
             return true
-        case .payment:
-            guard let setupFutureUsage = setupFutureUsage(for: paymentMethodType) else {
-                return false
-            }
-            return setupFutureUsage != "none"
-        case .subscription, .unknown:
-            stpAssertionFailure("Unknown and subscription modes are not currently supported with checkout sessions")
+        }
+
+        guard let setupFutureUsage = setupFutureUsage(for: paymentMethodType) else {
             return false
         }
+        return setupFutureUsage != "none"
     }
 
     func setupFutureUsage(for paymentMethodType: STPPaymentMethodType) -> String? {
@@ -127,6 +144,8 @@ extension Checkout.Session {
             tax: tax,
             total: total,
             mode: mode,
+            paymentStatus: paymentStatus,
+            amountDue: amountDue,
             paymentMethodOptions: paymentMethodOptions,
             customer: customer,
             savedPaymentMethodsOfferSave: savedPaymentMethodsOfferSave,

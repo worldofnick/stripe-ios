@@ -68,6 +68,15 @@ class PaymentPagesAPIResponse: NSObject {
     /// The mode of the Checkout Session (payment, setup, or subscription).
     let mode: Checkout.Mode
 
+    /// The top-level payment status. Unlike ``Checkout.Session.status``, this is always present.
+    /// For modeless sessions, it is used as a fallback to determine whether confirmation is
+    /// payment-style or setup-style.
+    let paymentStatus: Checkout.PaymentStatus
+
+    /// `total_summary.due`: the amount the server validates against `expected_amount` when
+    /// confirming a payment-style session.
+    let amountDue: Int?
+
     /// The ID of the PaymentIntent for Checkout Sessions in payment mode.
     let paymentIntentId: String?
 
@@ -130,24 +139,16 @@ class PaymentPagesAPIResponse: NSObject {
     /// The raw API response used to create this object.
     let allResponseFields: [AnyHashable: Any]
 
-    /// Extracts the client secret from the expanded PaymentIntent or SetupIntent based on mode.
+    /// Extracts the client secret from whichever expanded intent is present in the response.
     func intentClientSecret() throws -> String {
-        switch mode {
-        case .setup:
-            guard let setupIntent = setupIntent else {
-                throw PaymentSheetError.unknown(debugDescription: "Missing setup intent in confirm response")
-            }
+        if let setupIntent {
             return setupIntent.clientSecret
-        case .payment:
-            guard let paymentIntent = paymentIntent else {
-                throw PaymentSheetError.unknown(debugDescription: "Missing payment intent in confirm response")
-            }
+        } else if let paymentIntent {
             return paymentIntent.clientSecret
-        case .subscription:
-            throw PaymentSheetError.unknown(debugDescription: "Subscriptions are not yet supported with checkout sessions")
-        case .unknown:
-            throw PaymentSheetError.unknown(debugDescription: "Unknown checkout session mode")
         }
+        throw PaymentSheetError.unknown(
+            debugDescription: "No intent found in checkout session response"
+        )
     }
 
     /// :nodoc:
@@ -194,6 +195,8 @@ class PaymentPagesAPIResponse: NSObject {
         tax: Checkout.Tax,
         total: Checkout.Total?,
         mode: Checkout.Mode,
+        paymentStatus: Checkout.PaymentStatus,
+        amountDue: Int?,
         paymentIntentId: String?,
         setupIntentId: String?,
         paymentIntent: STPPaymentIntent?,
@@ -231,6 +234,8 @@ class PaymentPagesAPIResponse: NSObject {
         self.tax = tax
         self.total = total
         self.mode = mode
+        self.paymentStatus = paymentStatus
+        self.amountDue = amountDue
         self.paymentIntentId = paymentIntentId
         self.setupIntentId = setupIntentId
         self.paymentIntent = paymentIntent
@@ -326,6 +331,7 @@ extension PaymentPagesAPIResponse: STPAPIResponseDecodable {
                 balanceAppliedToNextInvoice: balanceAppliedToNextInvoice
             )
         }()
+        let amountDue = (dict["total_summary"] as? [AnyHashable: Any])?["due"] as? Int
 
         // Tax
         let taxStatus: Checkout.TaxStatus = {
@@ -454,6 +460,8 @@ extension PaymentPagesAPIResponse: STPAPIResponseDecodable {
             tax: tax,
             total: total,
             mode: Checkout.Mode.mode(from: rawMode),
+            paymentStatus: paymentStatus,
+            amountDue: amountDue,
             paymentIntentId: paymentIntentId,
             setupIntentId: setupIntentId,
             paymentIntent: paymentIntent,
