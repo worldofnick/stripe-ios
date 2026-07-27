@@ -10,26 +10,39 @@ import Foundation
 @_spi(STP) import StripePayments
 
 extension Checkout {
+    /// Whether `syncBillingAddress(from:)` will perform an update.
+    ///
+    /// Callers can use this to avoid presenting loading UI when billing sync is a no-op.
+    func willSyncBillingAddress(from billingDetails: STPPaymentMethodBillingDetails?) -> Bool {
+        return billingTaxAddress(from: billingDetails) != nil
+    }
+
     /// Syncs the payment method's billing address to Checkout tax calculation when needed.
     func syncBillingAddress(from billingDetails: STPPaymentMethodBillingDetails?) async throws {
-        // We need at least a country to build an Address for tax region calculation. Billing details
-        // are optional on payment methods, so it's fine to just skip if we don't have enough info.
-        guard let billingDetails,
-              let country = billingDetails.address?.country?.nonEmpty else {
+        guard let address = billingTaxAddress(from: billingDetails) else {
             return
         }
-        let source = billingDetails.address
-        let address = Address(
+        try await updateBillingTaxRegionIfNecessary(
+            address: address,
+            canUpdateWhileSheetPresented: true
+        )
+    }
+
+    private func billingTaxAddress(from billingDetails: STPPaymentMethodBillingDetails?) -> Address? {
+        // Billing details are optional on payment methods. A country is the minimum information
+        // Checkout needs to calculate tax, so there is nothing to sync without one.
+        guard session.collectsTaxFromBillingAddress,
+              let country = billingDetails?.address?.country?.nonEmpty else {
+            return nil
+        }
+        let source = billingDetails?.address
+        return Address(
             country: country,
             line1: source?.line1?.nonEmpty,
             line2: source?.line2?.nonEmpty,
             city: source?.city?.nonEmpty,
             state: source?.state?.nonEmpty,
             postalCode: source?.postalCode?.nonEmpty
-        )
-        try await updateBillingTaxRegionIfNecessary(
-            address: address,
-            canUpdateWhileSheetPresented: true
         )
     }
 }
