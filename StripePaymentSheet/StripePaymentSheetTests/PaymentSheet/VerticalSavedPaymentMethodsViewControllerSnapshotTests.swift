@@ -53,6 +53,8 @@ final class VerticalSavedPaymentMethodsViewControllerSnapshotTests: STPSnapshotT
 
         let sut = VerticalSavedPaymentMethodsViewController(configuration: configuration,
                                                             intent: ._testValue(),
+                                                            checkout: nil,
+                                                            selectionCompletionBehavior: .completesImmediately,
                                                             selectedPaymentMethod: paymentMethods.first,
                                                             paymentMethods: paymentMethods,
                                                             elementsSession: showDefaultPMBadge ? ._testDefaultCardValue(defaultPaymentMethod: paymentMethods.first?.stripeId ?? STPPaymentMethod._testCard().stripeId, paymentMethods: [testCardJSON]) : ._testCardValue(),

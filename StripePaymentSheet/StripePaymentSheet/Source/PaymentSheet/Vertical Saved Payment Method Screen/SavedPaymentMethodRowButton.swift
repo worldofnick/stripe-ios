@@ -66,8 +66,16 @@ final class SavedPaymentMethodRowButton: UIView {
     }
 
     private(set) var previousSelectedState: State = .unselected
+    private var isLoading: Bool = false
 
     // MARK: Private views
+
+    private lazy var spinner: ActivityIndicator = {
+        let spinner = ActivityIndicator(size: .medium)
+        spinner.tintColor = appearance.colors.primary
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        return spinner
+    }()
 
     private(set) lazy var chevronButton: RowButton.RightAccessoryButton = {
         let chevronButton = RowButton.RightAccessoryButton(accessoryType: .update, appearance: appearance, didTap: handleUpdateButtonTapped)
@@ -124,6 +132,28 @@ final class SavedPaymentMethodRowButton: UIView {
         } else {
             state = .selected
             delegate?.didSelectButton(self, with: paymentMethod)
+        }
+    }
+
+    /// Shows or hides the trailing spinner and dims the row content while loading.
+    func setLoading(_ loading: Bool) {
+        guard loading != isLoading else {
+            return
+        }
+        isLoading = loading
+
+        if loading {
+            addSubview(spinner)
+            NSLayoutConstraint.activate([
+                spinner.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+                spinner.centerYAnchor.constraint(equalTo: centerYAnchor),
+            ])
+            spinner.startAnimating()
+            rowButton.alpha = 0.6
+        } else {
+            spinner.stopAnimating()
+            spinner.removeFromSuperview()
+            rowButton.alpha = 1
         }
     }
 

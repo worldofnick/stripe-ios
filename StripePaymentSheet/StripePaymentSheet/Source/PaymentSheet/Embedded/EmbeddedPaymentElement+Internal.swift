@@ -213,6 +213,10 @@ extension EmbeddedPaymentElement: EmbeddedPaymentMethodsViewDelegate {
         let verticalSavedPaymentMethodsViewController = VerticalSavedPaymentMethodsViewController(
             configuration: configuration,
             intent: intent,
+            checkout: checkout,
+            selectionCompletionBehavior: checkout == nil
+                ? .completesImmediately
+                : .syncsCheckoutBillingBeforeCompletion,
             selectedPaymentMethod: selectedSavedPaymentMethod,
             paymentMethods: savedPaymentMethods,
             elementsSession: elementsSession,

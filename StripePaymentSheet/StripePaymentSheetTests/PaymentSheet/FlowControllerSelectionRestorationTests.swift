@@ -198,6 +198,8 @@ final class FlowControllerSelectionRestorationTests: XCTestCase {
         let manageViewController = VerticalSavedPaymentMethodsViewController(
             configuration: viewController.configuration,
             intent: viewController.intent,
+            checkout: nil,
+            selectionCompletionBehavior: .completesImmediately,
             selectedPaymentMethod: paymentMethod,
             paymentMethods: reorderedPaymentMethods,
             elementsSession: viewController.elementsSession,

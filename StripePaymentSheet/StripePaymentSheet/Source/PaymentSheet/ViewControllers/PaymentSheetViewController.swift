@@ -49,6 +49,7 @@ class PaymentSheetViewController: UIViewController, PaymentSheetViewControllerPr
     let loadResult: PaymentSheetLoader.LoadResult
     let formCache: PaymentMethodFormCache = .init()
     let analyticsHelper: PaymentSheetAnalyticsHelper
+    private weak var checkout: Checkout?
 
     // MARK: - Writable Properties
     weak var delegate: PaymentSheetViewControllerDelegate?
@@ -64,7 +65,12 @@ class PaymentSheetViewController: UIViewController, PaymentSheetViewControllerPr
     private(set) var isDismissable: Bool = true
 
     private lazy var savedPaymentMethodManager: SavedPaymentMethodManager = {
-        return SavedPaymentMethodManager(configuration: configuration, elementsSession: elementsSession, intent: intent)
+        return SavedPaymentMethodManager(
+            configuration: configuration,
+            elementsSession: elementsSession,
+            intent: intent,
+            checkout: checkout
+        )
     }()
 
     // MARK: - Views
@@ -146,6 +152,7 @@ class PaymentSheetViewController: UIViewController, PaymentSheetViewControllerPr
         loadResult: PaymentSheetLoader.LoadResult,
         analyticsHelper: PaymentSheetAnalyticsHelper,
         delegate: PaymentSheetViewControllerDelegate,
+        checkout: Checkout?,
         previousPaymentOption: PaymentOption? = nil
     ) {
         // Only call loadResult.intent.cvcRecollectionEnabled once per load
@@ -159,6 +166,13 @@ class PaymentSheetViewController: UIViewController, PaymentSheetViewControllerPr
         self.isLinkEnabled = PaymentSheet.isLinkEnabled(elementsSession: elementsSession, configuration: configuration)
         self.isCVCRecollectionEnabled = isCVCRecollectionEnabled
         self.delegate = delegate
+        self.checkout = checkout
+        switch loadResult.intent {
+        case .checkout:
+            stpAssert(checkout != nil, "Checkout is required for a Checkout intent.")
+        case .paymentIntent, .setupIntent, .deferredIntent:
+            stpAssert(checkout == nil, "Checkout should only be provided for a Checkout intent.")
+        }
         self.savedPaymentOptionsViewController = SavedPaymentOptionsViewController(
             savedPaymentMethods: loadResult.savedPaymentMethods,
             configuration: .init(
@@ -576,7 +590,8 @@ extension PaymentSheetViewController: SavedPaymentOptionsViewControllerDelegate 
 
     func didUpdateSelection(
         viewController: SavedPaymentOptionsViewController,
-        paymentMethodSelection: SavedPaymentOptionsViewController.Selection
+        paymentMethodSelection: SavedPaymentOptionsViewController.Selection,
+        previousSelection: SavedPaymentOptionsViewController.SelectionSnapshot
     ) {
         analyticsHelper.logSavedPMScreenOptionSelected(option: paymentMethodSelection)
         if case .add = paymentMethodSelection {
