@@ -153,7 +153,8 @@ extension EmbeddedPaymentElement: EmbeddedPaymentMethodsViewDelegate {
         guard let checkout,
               case .saved(let paymentMethod) = rowButtonType,
               let billingDetails = paymentMethod.billingDetails,
-              checkout.willSyncBillingAddress(from: billingDetails) else {
+              checkout.session.collectsTaxFromBillingAddress,
+              billingDetails.address?.country?.nonEmpty != nil else {
             persistDefaultPaymentMethodSelection(rowButtonType)
             return
         }
