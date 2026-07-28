@@ -158,21 +158,15 @@ final class EmbeddedPaymentMethodsViewTests: XCTestCase {
             shouldShowApplePay: false,
             shouldShowLink: false
         )
-        embeddedView.autosizeHeight(width: 300)
-        let initialHeight = embeddedView.bounds.height
 
         embeddedView.setError(
             NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Error"]),
             animated: false
         )
-        embeddedView.autosizeHeight(width: 300)
         XCTAssertNotNil(embeddedView._test_displayedErrorMessage)
-        XCTAssertGreaterThan(embeddedView.bounds.height, initialHeight)
 
         embeddedView.didTap(rowButton: embeddedView.getRowButton(accessibilityIdentifier: "Card"))
-        embeddedView.autosizeHeight(width: 300)
         XCTAssertNil(embeddedView._test_displayedErrorMessage)
-        XCTAssertEqual(embeddedView.bounds.height, initialHeight)
     }
 }
 

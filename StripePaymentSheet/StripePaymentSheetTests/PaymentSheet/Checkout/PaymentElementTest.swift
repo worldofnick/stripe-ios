@@ -345,10 +345,21 @@ final class PaymentElementTest: XCTestCase {
         requestRecorder: CheckoutSessionRequestRecorder
     ) {
         let requestRecorder = CheckoutSessionRequestRecorder()
-        let sessionJSON = Self.openSessionJSONWithSavedPaymentMethod(
-            automaticTaxFromBilling: automaticTaxFromBilling,
-            paymentMethodTypes: paymentMethodTypes
+        let elementsSession = STPElementsSession._testValue(
+            paymentMethodTypes: paymentMethodTypes,
+            customerSessionData: [:],
+            paymentMethods: [
+                STPPaymentMethod._testCard(countryCode: "US").allResponseFields,
+            ]
         )
+        var sessionJSON = Self.openSessionJSON(paymentMethodTypes: paymentMethodTypes)
+        sessionJSON["elements_session"] = elementsSession.allResponseFields
+        if automaticTaxFromBilling {
+            sessionJSON["tax_context"] = [
+                "automatic_tax_enabled": true,
+                "automatic_tax_address_source": "session.billing",
+            ]
+        }
         CheckoutTestHelpers.stubCheckoutSessionRequests(
             sessionId: "cs_test_123",
             requestRecorder: requestRecorder,
@@ -373,37 +384,6 @@ final class PaymentElementTest: XCTestCase {
         embeddedPaymentElement.clearPaymentOption()
 
         return (checkout, embeddedPaymentElement, savedPaymentMethodRow, requestRecorder)
-    }
-
-    private static func openSessionJSONWithSavedPaymentMethod(
-        automaticTaxFromBilling: Bool,
-        paymentMethodTypes: [String]
-    ) -> [AnyHashable: Any] {
-        var savedPaymentMethod = STPPaymentMethod._testCardJSON
-        savedPaymentMethod["billing_details"] = [
-            "address": [
-                "country": "US",
-                "line1": "123 Main St",
-                "city": "San Francisco",
-                "state": "CA",
-                "postal_code": "94105",
-            ],
-        ]
-
-        let elementsSession = STPElementsSession._testValue(
-            paymentMethodTypes: paymentMethodTypes,
-            customerSessionData: [:],
-            paymentMethods: [savedPaymentMethod]
-        )
-        var json = openSessionJSON(paymentMethodTypes: paymentMethodTypes)
-        json["elements_session"] = elementsSession.allResponseFields
-        if automaticTaxFromBilling {
-            json["tax_context"] = [
-                "automatic_tax_enabled": true,
-                "automatic_tax_address_source": "session.billing",
-            ]
-        }
-        return json
     }
 
 }
