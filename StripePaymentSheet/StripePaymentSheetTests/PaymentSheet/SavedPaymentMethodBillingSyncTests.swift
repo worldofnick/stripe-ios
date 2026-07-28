@@ -271,6 +271,7 @@ final class SavedPaymentMethodBillingSyncTests: APIStubbedTestCase {
         XCTAssertEqual(cell.selectedIcon.imageView.alpha, 0)
         XCTAssertEqual(activityIndicatorCount(in: cell.selectableRectangle), 0)
         XCTAssertEqual(activityIndicatorCount(in: cell.selectedIcon), 1)
+        XCTAssertEqual(activityIndicator(in: cell.selectedIcon)?.alpha, 1)
 
         // When
         cell.showSuccess(animated: false)

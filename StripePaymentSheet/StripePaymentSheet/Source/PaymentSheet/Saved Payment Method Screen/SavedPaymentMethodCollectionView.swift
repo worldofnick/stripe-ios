@@ -299,26 +299,19 @@ extension SavedPaymentMethodCollectionView {
 
             if loading {
                 selectedIcon.isHidden = false
+                selectedIcon.imageView.alpha = 0
+                selectedIcon.imageView.transform = CGAffineTransform(
+                    scaleX: 0.65,
+                    y: 0.65
+                )
                 spinner.tintColor = appearance.colors.primary.contrastingColor
-                spinner.alpha = 0
+                spinner.alpha = 1
                 selectedIcon.addSubview(spinner)
                 NSLayoutConstraint.activate([
                     spinner.centerXAnchor.constraint(equalTo: selectedIcon.centerXAnchor),
                     spinner.centerYAnchor.constraint(equalTo: selectedIcon.centerYAnchor),
                 ])
                 spinner.startAnimating()
-                UIView.animate(
-                    withDuration: PaymentSheetUI.quickAnimationDuration,
-                    delay: 0,
-                    options: [.beginFromCurrentState, .curveEaseOut]
-                ) {
-                    self.spinner.alpha = 1
-                    self.selectedIcon.imageView.alpha = 0
-                    self.selectedIcon.imageView.transform = CGAffineTransform(
-                        scaleX: 0.65,
-                        y: 0.65
-                    )
-                }
             } else {
                 spinner.stopAnimating()
                 spinner.removeFromSuperview()
