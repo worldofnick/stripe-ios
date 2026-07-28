@@ -364,19 +364,17 @@ final class PaymentElementTest: XCTestCase {
         return json
     }
 
-    private struct SavedPaymentMethodSelectionFixture {
-        let checkout: Checkout
-        let embeddedPaymentElement: EmbeddedPaymentElement
-        let savedPaymentMethodRow: RowButton
-        let requestRecorder: CheckoutSessionRequestRecorder
-    }
-
     private func makeSavedPaymentMethodSelectionFixture(
         automaticTaxFromBilling: Bool = true,
         paymentMethodTypes: [String] = ["card"],
         updateStatusCode: Int32 = 200,
         didSelectPaymentOption: @escaping () -> Void
-    ) async throws -> SavedPaymentMethodSelectionFixture {
+    ) async throws -> (
+        checkout: Checkout,
+        embeddedPaymentElement: EmbeddedPaymentElement,
+        savedPaymentMethodRow: RowButton,
+        requestRecorder: CheckoutSessionRequestRecorder
+    ) {
         let requestRecorder = CheckoutSessionRequestRecorder()
         let sessionJSON = Self.openSessionJSONWithSavedPaymentMethod(
             automaticTaxFromBilling: automaticTaxFromBilling,
@@ -405,12 +403,7 @@ final class PaymentElementTest: XCTestCase {
         )
         embeddedPaymentElement.clearPaymentOption()
 
-        return SavedPaymentMethodSelectionFixture(
-            checkout: checkout,
-            embeddedPaymentElement: embeddedPaymentElement,
-            savedPaymentMethodRow: savedPaymentMethodRow,
-            requestRecorder: requestRecorder
-        )
+        return (checkout, embeddedPaymentElement, savedPaymentMethodRow, requestRecorder)
     }
 
     private static func openSessionJSONWithSavedPaymentMethod(

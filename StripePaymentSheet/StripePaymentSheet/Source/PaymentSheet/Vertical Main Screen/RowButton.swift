@@ -42,7 +42,6 @@ class RowButton: UIView, EventHandler {
         loadingIndicator.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
         loadingIndicator.centerYAnchor.constraint(equalTo: imageView.centerYAnchor),
     ]
-    private var loadingTransitionAnimator: UIViewPropertyAnimator?
 
     // MARK: State
 
@@ -206,7 +205,6 @@ class RowButton: UIView, EventHandler {
     func setLoading(_ loading: Bool, animated: Bool = true) {
         guard loading != isLoading else { return }
         isLoading = loading
-        loadingTransitionAnimator?.stopAnimation(true)
 
         if loading {
             addSubview(loadingIndicator)
@@ -220,27 +218,25 @@ class RowButton: UIView, EventHandler {
             loadingIndicator.alpha = loading ? 1 : 0
             imageView.alpha = loading ? 0 : keyContentAlpha
         }
-        let completion: (UIViewAnimatingPosition) -> Void = { [weak self] _ in
+        let completion: (Bool) -> Void = { [weak self] _ in
             guard let self else { return }
-            self.loadingTransitionAnimator = nil
-            guard !self.isLoading else { return }
+            guard self.isLoading == loading, !loading else { return }
             self.loadingIndicator.stopAnimating()
             self.loadingIndicator.removeFromSuperview()
         }
 
         guard animated else {
             animations()
-            completion(.end)
+            completion(true)
             return
         }
-        let animator = UIViewPropertyAnimator(
-            duration: 0.2,
-            curve: .easeInOut,
-            animations: animations
+        UIView.animate(
+            withDuration: 0.2,
+            delay: 0,
+            options: [.beginFromCurrentState, .allowUserInteraction],
+            animations: animations,
+            completion: completion
         )
-        animator.addCompletion(completion)
-        loadingTransitionAnimator = animator
-        animator.startAnimation()
     }
 
     func updateSelectedState(_ isSelected: Bool, willDisplayForm: Bool) {

@@ -340,9 +340,7 @@ class EmbeddedPaymentMethodsView: UIView {
     func selectSavedPaymentMethod(withStripeId stripeId: String) -> Bool {
         guard let rowButton = rowButtons.first(where: {
             $0.type.savedPaymentMethod?.stripeId == stripeId
-        }) else {
-            return false
-        }
+        }) else { return false }
         selectedRowButton = rowButton
         return true
     }

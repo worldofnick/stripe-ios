@@ -14,35 +14,30 @@ extension Checkout {
     ///
     /// Callers can use this to avoid presenting loading UI when billing sync is a no-op.
     func willSyncBillingAddress(from billingDetails: STPPaymentMethodBillingDetails?) -> Bool {
-        return billingTaxAddress(from: billingDetails) != nil
+        return session.collectsTaxFromBillingAddress
+            && billingDetails?.address?.country?.nonEmpty != nil
     }
 
     /// Syncs the payment method's billing address to Checkout tax calculation when needed.
     func syncBillingAddress(from billingDetails: STPPaymentMethodBillingDetails?) async throws {
-        guard let address = billingTaxAddress(from: billingDetails) else {
-            return
-        }
-        try await updateBillingTaxRegionIfNecessary(
-            address: address,
-            canUpdateWhileSheetPresented: true
-        )
-    }
-
-    private func billingTaxAddress(from billingDetails: STPPaymentMethodBillingDetails?) -> Address? {
         // Billing details are optional on payment methods. A country is the minimum information
         // Checkout needs to calculate tax, so there is nothing to sync without one.
         guard session.collectsTaxFromBillingAddress,
               let country = billingDetails?.address?.country?.nonEmpty else {
-            return nil
+            return
         }
         let source = billingDetails?.address
-        return Address(
+        let address = Address(
             country: country,
             line1: source?.line1?.nonEmpty,
             line2: source?.line2?.nonEmpty,
             city: source?.city?.nonEmpty,
             state: source?.state?.nonEmpty,
             postalCode: source?.postalCode?.nonEmpty
+        )
+        try await updateBillingTaxRegionIfNecessary(
+            address: address,
+            canUpdateWhileSheetPresented: true
         )
     }
 }
