@@ -32,7 +32,6 @@ final class PaymentSheetViewControllerSnapshotTests: STPSnapshotTestCase {
             loadResult: makeTestLoadResult(savedPaymentMethods: paymentMethods),
             analyticsHelper: ._testValue(),
             delegate: self,
-            checkout: nil,
             previousPaymentOption: nil
         )
         sut.view.autosizeHeight(width: 375)
@@ -48,7 +47,6 @@ final class PaymentSheetViewControllerSnapshotTests: STPSnapshotTestCase {
             loadResult: makeTestLoadResult(savedPaymentMethods: paymentMethods),
             analyticsHelper: ._testValue(),
             delegate: self,
-            checkout: nil,
             previousPaymentOption: nil
         )
         sut.view.autosizeHeight(width: 375)
@@ -64,7 +62,6 @@ final class PaymentSheetViewControllerSnapshotTests: STPSnapshotTestCase {
             loadResult: makeTestLoadResult(savedPaymentMethods: paymentMethods),
             analyticsHelper: ._testValue(),
             delegate: self,
-            checkout: nil,
             previousPaymentOption: nil
         )
         sut.view.autosizeHeight(width: 375)

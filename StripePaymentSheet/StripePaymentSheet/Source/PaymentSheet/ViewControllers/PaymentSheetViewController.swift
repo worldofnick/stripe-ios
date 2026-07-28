@@ -152,7 +152,7 @@ class PaymentSheetViewController: UIViewController, PaymentSheetViewControllerPr
         loadResult: PaymentSheetLoader.LoadResult,
         analyticsHelper: PaymentSheetAnalyticsHelper,
         delegate: PaymentSheetViewControllerDelegate,
-        checkout: Checkout?,
+        checkout: Checkout? = nil,
         previousPaymentOption: PaymentOption? = nil
     ) {
         // Only call loadResult.intent.cvcRecollectionEnabled once per load
@@ -167,12 +167,6 @@ class PaymentSheetViewController: UIViewController, PaymentSheetViewControllerPr
         self.isCVCRecollectionEnabled = isCVCRecollectionEnabled
         self.delegate = delegate
         self.checkout = checkout
-        switch loadResult.intent {
-        case .checkout:
-            stpAssert(checkout != nil, "Checkout is required for a Checkout intent.")
-        case .paymentIntent, .setupIntent, .deferredIntent:
-            stpAssert(checkout == nil, "Checkout should only be provided for a Checkout intent.")
-        }
         self.savedPaymentOptionsViewController = SavedPaymentOptionsViewController(
             savedPaymentMethods: loadResult.savedPaymentMethods,
             configuration: .init(

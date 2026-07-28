@@ -33,18 +33,11 @@ protocol VerticalSavedPaymentMethodsViewControllerDelegate: AnyObject {
 
 /// A view controller that shows a list of saved payment methods in a vertical orientation
 class VerticalSavedPaymentMethodsViewController: UIViewController {
-    enum SelectionCompletionBehavior {
-        /// Completes selection synchronously without Checkout billing synchronization.
-        case completesImmediately
-        /// Synchronizes Checkout billing, then completes selection if the update succeeds.
-        case syncsCheckoutBillingBeforeCompletion
-    }
-
     // MARK: Private properties
     private let configuration: PaymentElementConfiguration
     private let intent: Intent
     private weak var checkout: Checkout?
-    private let selectionCompletionBehavior: SelectionCompletionBehavior
+    private let syncsCheckoutBillingBeforeCompletion: Bool
     private let elementsSession: STPElementsSession
     private let paymentMethodRemove: Bool
     private let paymentMethodRemoveLast: Bool
@@ -56,7 +49,6 @@ class VerticalSavedPaymentMethodsViewController: UIViewController {
 
     private var updateViewController: UpdatePaymentMethodViewController?
     private var defaultPaymentMethod: STPPaymentMethod?
-    private var isSyncingBillingAddress = false
 
     private var isEditingPaymentMethods: Bool = false {
         didSet {
@@ -208,8 +200,8 @@ class VerticalSavedPaymentMethodsViewController: UIViewController {
     init(
         configuration: PaymentElementConfiguration,
         intent: Intent,
-        checkout: Checkout?,
-        selectionCompletionBehavior: SelectionCompletionBehavior,
+        checkout: Checkout? = nil,
+        syncsCheckoutBillingBeforeCompletion: Bool = false,
         selectedPaymentMethod: STPPaymentMethod?,
         paymentMethods: [STPPaymentMethod],
         elementsSession: STPElementsSession,
@@ -219,7 +211,7 @@ class VerticalSavedPaymentMethodsViewController: UIViewController {
         self.configuration = configuration
         self.intent = intent
         self.checkout = checkout
-        self.selectionCompletionBehavior = selectionCompletionBehavior
+        self.syncsCheckoutBillingBeforeCompletion = syncsCheckoutBillingBeforeCompletion
         self.elementsSession = elementsSession
         self.defaultPaymentMethod = defaultPaymentMethod
         self.paymentMethodRemove = intent.allowsPaymentMethodRemoval(elementsSession: elementsSession)
@@ -229,7 +221,7 @@ class VerticalSavedPaymentMethodsViewController: UIViewController {
         self.isCBCEligible = elementsSession.isCardBrandChoiceEligible
         self.analyticsHelper = analyticsHelper
         super.init(nibName: nil, bundle: nil)
-        if case .syncsCheckoutBillingBeforeCompletion = selectionCompletionBehavior {
+        if syncsCheckoutBillingBeforeCompletion {
             stpAssert(
                 checkout != nil,
                 "Checkout is required to sync billing before selection completion."
@@ -353,11 +345,11 @@ class VerticalSavedPaymentMethodsViewController: UIViewController {
 // MARK: - BottomSheetContentViewController
 extension VerticalSavedPaymentMethodsViewController: BottomSheetContentViewController {
     var allowsDragToDismiss: Bool {
-        return !isSyncingBillingAddress
+        return view.isUserInteractionEnabled
     }
 
     func didTapOrSwipeToDismiss() {
-        if !isSyncingBillingAddress {
+        if view.isUserInteractionEnabled {
             complete(didTapToDismiss: true)
         }
     }
@@ -388,7 +380,7 @@ extension VerticalSavedPaymentMethodsViewController: SavedPaymentMethodRowButton
 
     func didSelectButton(_ button: SavedPaymentMethodRowButton, with paymentMethod: STPPaymentMethod) {
         analyticsHelper.logSavedPMScreenOptionSelected(option: .saved(paymentMethod: paymentMethod))
-        let previousSelectedButton = paymentMethodRows.first { $0.isSelected }
+        let previousSelectedButton = paymentMethodRows.first { $0 != button && $0.isSelected }
         let previousCustomerPaymentOption = CustomerPaymentOption.localDefaultPaymentMethod(
             for: configuration.customer?.id
         )
@@ -401,18 +393,16 @@ extension VerticalSavedPaymentMethodsViewController: SavedPaymentMethodRowButton
         }
 
         // Deselect previous button
-        if previousSelectedButton != button {
-            previousSelectedButton?.state = .unselected
-        }
+        previousSelectedButton?.state = .unselected
 
         // Disable interaction to prevent double selecting or entering edit mode since we will be dismissing soon
-        self.view.isUserInteractionEnabled = false
-        self.navigationBar.isUserInteractionEnabled = false
+        view.isUserInteractionEnabled = false
+        navigationBar.isUserInteractionEnabled = false
 
-        guard case .syncsCheckoutBillingBeforeCompletion = selectionCompletionBehavior,
+        guard syncsCheckoutBillingBeforeCompletion,
               let checkout,
               checkout.requiresBillingAddressSync(from: paymentMethod.billingDetails) else {
-            self.complete()
+            complete()
             return
         }
 
@@ -432,7 +422,6 @@ extension VerticalSavedPaymentMethodsViewController: SavedPaymentMethodRowButton
         previousSelectedButton: SavedPaymentMethodRowButton?,
         previousCustomerPaymentOption: CustomerPaymentOption?
     ) {
-        isSyncingBillingAddress = true
         showError(nil)
         button.setLoading(true)
         setSiblingRowsEnabled(false, selectedRow: button)
@@ -447,8 +436,7 @@ extension VerticalSavedPaymentMethodsViewController: SavedPaymentMethodRowButton
             } catch {
                 button.setLoading(false)
                 self.setSiblingRowsEnabled(true, selectedRow: button)
-                self.isSyncingBillingAddress = false
-                button.state = .unselected
+                button.state = button.previousSelectedState
                 previousSelectedButton?.state = .selected
                 if !self.elementsSession.paymentMethodSetAsDefaultForPaymentSheet {
                     CustomerPaymentOption.setDefaultPaymentMethod(
@@ -467,10 +455,10 @@ extension VerticalSavedPaymentMethodsViewController: SavedPaymentMethodRowButton
         _ enabled: Bool,
         selectedRow: SavedPaymentMethodRowButton
     ) {
-        paymentMethodRows.filter { $0 != selectedRow }.forEach {
+        for row in paymentMethodRows where row != selectedRow {
             sendEventToSubviews(
                 enabled ? .shouldEnableUserInteraction : .shouldDisableUserInteraction,
-                from: $0
+                from: row
             )
         }
     }

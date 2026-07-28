@@ -828,7 +828,6 @@ class PaymentSheetVerticalViewController: UIViewController, FlowControllerViewCo
             configuration: configuration,
             intent: intent,
             checkout: checkout,
-            selectionCompletionBehavior: .completesImmediately,
             selectedPaymentMethod: selectedPaymentOption?.savedPaymentMethod,
             paymentMethods: savedPaymentMethods,
             elementsSession: elementsSession,

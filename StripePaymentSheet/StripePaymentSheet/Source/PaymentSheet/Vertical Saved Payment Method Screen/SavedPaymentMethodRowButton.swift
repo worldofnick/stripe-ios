@@ -66,7 +66,6 @@ final class SavedPaymentMethodRowButton: UIView {
     }
 
     private(set) var previousSelectedState: State = .unselected
-    private var isLoading: Bool = false
 
     // MARK: Private views
 
@@ -115,6 +114,11 @@ final class SavedPaymentMethodRowButton: UIView {
         super.init(frame: .zero)
 
         addAndPinSubview(rowButton)
+        addSubview(spinner)
+        NSLayoutConstraint.activate([
+            spinner.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            spinner.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -137,22 +141,15 @@ final class SavedPaymentMethodRowButton: UIView {
 
     /// Shows or hides the trailing spinner and dims the row content while loading.
     func setLoading(_ loading: Bool) {
-        guard loading != isLoading else {
+        guard loading != spinner.isAnimating else {
             return
         }
-        isLoading = loading
 
         if loading {
-            addSubview(spinner)
-            NSLayoutConstraint.activate([
-                spinner.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-                spinner.centerYAnchor.constraint(equalTo: centerYAnchor),
-            ])
             spinner.startAnimating()
             rowButton.alpha = 0.6
         } else {
             spinner.stopAnimating()
-            spinner.removeFromSuperview()
             rowButton.alpha = 1
         }
     }

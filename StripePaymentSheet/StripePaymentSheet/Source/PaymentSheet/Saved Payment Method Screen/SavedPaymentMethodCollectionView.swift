@@ -123,8 +123,6 @@ extension SavedPaymentMethodCollectionView {
             return spinner
         }()
 
-        private var isLoading: Bool = false
-
         fileprivate var viewModel: SavedPaymentOptionsViewController.Selection?
 
         var isRemovingPaymentMethods: Bool = false {
@@ -236,7 +234,12 @@ extension SavedPaymentMethodCollectionView {
                     equalTo: contentView.trailingAnchor, constant: 0),
                 accessoryButton.topAnchor.constraint(
                     equalTo: contentView.topAnchor, constant: 0),
+            ])
 
+            selectedIcon.addSubview(spinner)
+            NSLayoutConstraint.activate([
+                spinner.centerXAnchor.constraint(equalTo: selectedIcon.centerXAnchor),
+                spinner.centerYAnchor.constraint(equalTo: selectedIcon.centerYAnchor),
             ])
         }
 
@@ -292,10 +295,9 @@ extension SavedPaymentMethodCollectionView {
 
         /// Replaces the selected checkmark with a spinner while loading.
         func setLoading(_ loading: Bool) {
-            guard loading != isLoading else {
+            guard loading != spinner.isAnimating else {
                 return
             }
-            isLoading = loading
 
             if loading {
                 selectedIcon.isHidden = false
@@ -306,17 +308,9 @@ extension SavedPaymentMethodCollectionView {
                 )
                 spinner.tintColor = appearance.colors.primary.contrastingColor
                 spinner.alpha = 1
-                selectedIcon.addSubview(spinner)
-                NSLayoutConstraint.activate([
-                    spinner.centerXAnchor.constraint(equalTo: selectedIcon.centerXAnchor),
-                    spinner.centerYAnchor.constraint(equalTo: selectedIcon.centerYAnchor),
-                ])
                 spinner.startAnimating()
             } else {
                 spinner.stopAnimating()
-                spinner.removeFromSuperview()
-                spinner.alpha = 1
-                selectedIcon.imageView.layer.removeAllAnimations()
                 selectedIcon.imageView.alpha = 1
                 selectedIcon.imageView.transform = .identity
                 selectedIcon.isHidden = !isSelected
@@ -324,20 +318,8 @@ extension SavedPaymentMethodCollectionView {
         }
 
         /// Smoothly transitions the loading spinner back into the selected checkmark.
-        func showSuccess(animated: Bool = true) {
-            guard isLoading else {
-                return
-            }
-
-            let showCheckmark = {
-                self.spinner.stopAnimating()
-                self.spinner.alpha = 0
-                self.selectedIcon.imageView.alpha = 1
-                self.selectedIcon.imageView.transform = .identity
-            }
-
-            guard animated else {
-                showCheckmark()
+        func showSuccess() {
+            guard spinner.isAnimating else {
                 return
             }
 

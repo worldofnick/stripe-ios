@@ -49,8 +49,7 @@ final class SavedPaymentMethodManagerTests: XCTestCase {
         let sut = SavedPaymentMethodManager(
             configuration: configuration,
             elementsSession: ._testCardValue(),
-            intent: ._testValue(),
-            checkout: nil
+            intent: ._testValue()
         )
         let updatedPaymentMethod = try await sut.update(paymentMethod: paymentMethod,
                            with: STPPaymentMethodUpdateParams())
@@ -81,8 +80,7 @@ final class SavedPaymentMethodManagerTests: XCTestCase {
         let sut = SavedPaymentMethodManager(
             configuration: configuration,
             elementsSession: elementsSession,
-            intent: ._testValue(),
-            checkout: nil
+            intent: ._testValue()
         )
         let updatedPaymentMethod = try await sut.update(paymentMethod: paymentMethod,
                            with: STPPaymentMethodUpdateParams())
@@ -113,8 +111,7 @@ final class SavedPaymentMethodManagerTests: XCTestCase {
         let sut = SavedPaymentMethodManager(
             configuration: configuration,
             elementsSession: ._testCardValue(),
-            intent: ._testValue(),
-            checkout: nil
+            intent: ._testValue()
         )
         let updatedPaymentMethod = try await sut.update(paymentMethod: paymentMethod,
                                                         with: STPPaymentMethodUpdateParams())
@@ -126,13 +123,12 @@ final class SavedPaymentMethodManagerTests: XCTestCase {
 
     func testUpdatePaymentMethod_checkoutSession() async throws {
         let checkoutSessionId = "cs_test_checkout_session"
+        let checkoutSession = makeCheckoutSession(id: checkoutSessionId)
+        let checkout = try await makeCheckout(session: checkoutSession)
         let (expectation, capturedBody) = stubCheckoutSessionUpdatePaymentMethod(
             checkoutSessionId: checkoutSessionId,
             paymentMethodId: paymentMethod.stripeId
         )
-
-        let checkoutSession = makeCheckoutSession(id: checkoutSessionId)
-        let checkout = try await makeCheckout(session: checkoutSession)
         let sut = SavedPaymentMethodManager(
             configuration: configuration,
             elementsSession: ._testValue(paymentMethodTypes: ["card"]),
@@ -163,13 +159,12 @@ final class SavedPaymentMethodManagerTests: XCTestCase {
 
     func testUpdatePaymentMethod_checkoutSession_expiryOnly() async throws {
         let checkoutSessionId = "cs_test_checkout_session"
+        let checkoutSession = makeCheckoutSession(id: checkoutSessionId)
+        let checkout = try await makeCheckout(session: checkoutSession)
         let (expectation, capturedBody) = stubCheckoutSessionUpdatePaymentMethod(
             checkoutSessionId: checkoutSessionId,
             paymentMethodId: paymentMethod.stripeId
         )
-
-        let checkoutSession = makeCheckoutSession(id: checkoutSessionId)
-        let checkout = try await makeCheckout(session: checkoutSession)
         let sut = SavedPaymentMethodManager(
             configuration: configuration,
             elementsSession: ._testValue(paymentMethodTypes: ["card"]),
@@ -220,8 +215,7 @@ final class SavedPaymentMethodManagerTests: XCTestCase {
         let sut = SavedPaymentMethodManager(
             configuration: configuration,
             elementsSession: ._testValue(paymentMethodTypes: ["card"]),
-            intent: ._testValue(),
-            checkout: nil
+            intent: ._testValue()
         )
         sut.detach(paymentMethod: paymentMethod)
 
@@ -254,15 +248,14 @@ final class SavedPaymentMethodManagerTests: XCTestCase {
         let sut = SavedPaymentMethodManager(
             configuration: configuration,
             elementsSession: elementsSession,
-            intent: ._testValue(),
-            checkout: nil
+            intent: ._testValue()
         )
         sut.detach(paymentMethod: paymentMethod)
 
         wait(for: [listPaymentMethodsExpectation, detachExpectation], timeout: 5.0)
     }
 
-    func testDetachPaymentMethod_checkoutSession() async throws {
+    func testDetachPaymentMethod_checkoutSession() {
         let checkoutSessionId = "cs_test_checkout_session"
         let detachExpectation = stubCheckoutSessionDetachPaymentMethod(
             checkoutSessionId: checkoutSessionId,
@@ -270,17 +263,14 @@ final class SavedPaymentMethodManagerTests: XCTestCase {
         )
 
         let checkoutSession = makeCheckoutSession(id: checkoutSessionId)
-        let checkout = try await makeCheckout(session: checkoutSession)
-
         let sut = SavedPaymentMethodManager(
             configuration: configuration,
             elementsSession: ._testValue(paymentMethodTypes: ["card"]),
-            intent: .checkout(checkoutSession.makePublicSession()),
-            checkout: checkout
+            intent: .checkout(checkoutSession.makePublicSession())
         )
         sut.detach(paymentMethod: paymentMethod)
 
-        await fulfillment(of: [detachExpectation], timeout: 5.0)
+        wait(for: [detachExpectation], timeout: 5.0)
     }
 }
 

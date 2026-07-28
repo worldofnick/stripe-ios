@@ -30,8 +30,6 @@ class VerticalSavedPaymentMethodsViewControllerTests: XCTestCase {
         let viewController = VerticalSavedPaymentMethodsViewController(
             configuration: configuration,
             intent: ._testValue(),
-            checkout: nil,
-            selectionCompletionBehavior: .completesImmediately,
             selectedPaymentMethod: paymentMethods.first,
             paymentMethods: paymentMethods,
             elementsSession: ._testValue(paymentMethodTypes: ["card"]),
@@ -45,8 +43,6 @@ class VerticalSavedPaymentMethodsViewControllerTests: XCTestCase {
         let viewController = VerticalSavedPaymentMethodsViewController(
             configuration: configuration,
             intent: ._testValue(),
-            checkout: nil,
-            selectionCompletionBehavior: .completesImmediately,
             selectedPaymentMethod: paymentMethods.first,
             paymentMethods: paymentMethods,
             elementsSession: ._testValue(
@@ -73,8 +69,6 @@ class VerticalSavedPaymentMethodsViewControllerTests: XCTestCase {
         let viewController = VerticalSavedPaymentMethodsViewController(
             configuration: configuration,
             intent: ._testValue(),
-            checkout: nil,
-            selectionCompletionBehavior: .completesImmediately,
             selectedPaymentMethod: paymentMethods.first,
             paymentMethods: paymentMethods,
             elementsSession: ._testValue(paymentMethodTypes: ["card"]),
@@ -89,8 +83,6 @@ class VerticalSavedPaymentMethodsViewControllerTests: XCTestCase {
         let viewController = VerticalSavedPaymentMethodsViewController(
             configuration: configuration,
             intent: ._testValue(),
-            checkout: nil,
-            selectionCompletionBehavior: .completesImmediately,
             selectedPaymentMethod: singlePaymentMethods.first,
             paymentMethods: singlePaymentMethods,
             elementsSession: ._testValue(paymentMethodTypes: ["card"]),
@@ -106,8 +98,6 @@ class VerticalSavedPaymentMethodsViewControllerTests: XCTestCase {
         let viewController = VerticalSavedPaymentMethodsViewController(
             configuration: configuration,
             intent: ._testValue(),
-            checkout: nil,
-            selectionCompletionBehavior: .completesImmediately,
             selectedPaymentMethod: singlePaymentMethods.first,
             paymentMethods: singlePaymentMethods,
             elementsSession: ._testValue(paymentMethodTypes: ["card"]),
@@ -121,8 +111,6 @@ class VerticalSavedPaymentMethodsViewControllerTests: XCTestCase {
     func testCanEdit_multiplePaymentMethods_returnsTrue() {
         let viewController = VerticalSavedPaymentMethodsViewController(configuration: configuration,
                                                                        intent: ._testValue(),
-                                                                       checkout: nil,
-                                                                       selectionCompletionBehavior: .completesImmediately,
                                                                        selectedPaymentMethod: paymentMethods.first,
                                                                        paymentMethods: paymentMethods,
                                                                        elementsSession: ._testValue(paymentMethodTypes: ["card"]),
@@ -137,8 +125,6 @@ class VerticalSavedPaymentMethodsViewControllerTests: XCTestCase {
         noRemovalConfiguration.allowsRemovalOfLastSavedPaymentMethod = false
         let viewController = VerticalSavedPaymentMethodsViewController(configuration: noRemovalConfiguration,
                                                                        intent: ._testValue(),
-                                                                       checkout: nil,
-                                                                       selectionCompletionBehavior: .completesImmediately,
                                                                        selectedPaymentMethod: singlePaymentMethods.first,
                                                                        paymentMethods: singlePaymentMethods,
                                                                        elementsSession: ._testValue(paymentMethodTypes: ["card"]),
@@ -151,8 +137,6 @@ class VerticalSavedPaymentMethodsViewControllerTests: XCTestCase {
         let singlePaymentMethods = [STPPaymentMethod._testCardCoBranded()]
         let viewController = VerticalSavedPaymentMethodsViewController(configuration: configuration,
                                                                        intent: ._testValue(),
-                                                                       checkout: nil,
-                                                                       selectionCompletionBehavior: .completesImmediately,
                                                                        selectedPaymentMethod: singlePaymentMethods.first,
                                                                        paymentMethods: singlePaymentMethods,
                                                                        elementsSession: ._testValue(paymentMethodTypes: ["card"]),
@@ -166,8 +150,6 @@ class VerticalSavedPaymentMethodsViewControllerTests: XCTestCase {
         let singlePaymentMethods = [STPPaymentMethod._testCard()]
         let viewController = VerticalSavedPaymentMethodsViewController(configuration: configuration,
                                                                        intent: ._testValue(),
-                                                                       checkout: nil,
-                                                                       selectionCompletionBehavior: .completesImmediately,
                                                                        selectedPaymentMethod: singlePaymentMethods.first,
                                                                        paymentMethods: singlePaymentMethods,
                                                                        elementsSession: ._testValue(paymentMethodTypes: ["card"]),
@@ -181,8 +163,6 @@ class VerticalSavedPaymentMethodsViewControllerTests: XCTestCase {
         let singlePaymentMethods = [STPPaymentMethod._testCardCoBranded()]
         let viewController = VerticalSavedPaymentMethodsViewController(configuration: configuration,
                                                                        intent: ._testValue(),
-                                                                       checkout: nil,
-                                                                       selectionCompletionBehavior: .completesImmediately,
                                                                        selectedPaymentMethod: singlePaymentMethods.first,
                                                                        paymentMethods: singlePaymentMethods,
                                                                        elementsSession: ._testValue(paymentMethodTypes: ["card"]),
@@ -197,8 +177,6 @@ class VerticalSavedPaymentMethodsViewControllerTests: XCTestCase {
         let viewController = VerticalSavedPaymentMethodsViewController(
             configuration: configuration,
             intent: ._testValue(),
-            checkout: nil,
-            selectionCompletionBehavior: .completesImmediately,
             selectedPaymentMethod: singlePaymentMethods.first,
             paymentMethods: singlePaymentMethods,
             elementsSession: ._testValue(paymentMethodTypes: ["card"],
@@ -214,8 +192,6 @@ class VerticalSavedPaymentMethodsViewControllerTests: XCTestCase {
         let viewController = VerticalSavedPaymentMethodsViewController(
             configuration: configuration,
             intent: makeCheckoutSessionIntent(canDetachPaymentMethod: false),
-            checkout: nil,
-            selectionCompletionBehavior: .completesImmediately,
             selectedPaymentMethod: paymentMethods.first,
             paymentMethods: paymentMethods,
             elementsSession: ._testValue(paymentMethodTypes: ["card"]),
@@ -230,8 +206,6 @@ class VerticalSavedPaymentMethodsViewControllerTests: XCTestCase {
         let viewController = VerticalSavedPaymentMethodsViewController(
             configuration: configuration,
             intent: makeCheckoutSessionIntent(canDetachPaymentMethod: true),
-            checkout: nil,
-            selectionCompletionBehavior: .completesImmediately,
             selectedPaymentMethod: paymentMethods.first,
             paymentMethods: paymentMethods,
             elementsSession: ._testValue(paymentMethodTypes: ["card"]),

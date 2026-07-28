@@ -214,9 +214,7 @@ extension EmbeddedPaymentElement: EmbeddedPaymentMethodsViewDelegate {
             configuration: configuration,
             intent: intent,
             checkout: checkout,
-            selectionCompletionBehavior: checkout == nil
-                ? .completesImmediately
-                : .syncsCheckoutBillingBeforeCompletion,
+            syncsCheckoutBillingBeforeCompletion: checkout != nil,
             selectedPaymentMethod: selectedSavedPaymentMethod,
             paymentMethods: savedPaymentMethods,
             elementsSession: elementsSession,

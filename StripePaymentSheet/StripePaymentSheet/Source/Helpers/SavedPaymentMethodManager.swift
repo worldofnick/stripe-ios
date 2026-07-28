@@ -14,7 +14,6 @@ final class SavedPaymentMethodManager {
 
     enum Error: Swift.Error {
         case missingEphemeralKey
-        case missingCheckout
     }
 
     let configuration: PaymentElementConfiguration
@@ -38,18 +37,12 @@ final class SavedPaymentMethodManager {
         configuration: PaymentElementConfiguration,
         elementsSession: STPElementsSession,
         intent: Intent,
-        checkout: Checkout?
+        checkout: Checkout? = nil
     ) {
         self.configuration = configuration
         self.elementsSession = elementsSession
         self.intent = intent
         self.checkout = checkout
-        switch intent {
-        case .checkout:
-            stpAssert(checkout != nil, "Checkout is required for a Checkout intent.")
-        case .paymentIntent, .setupIntent, .deferredIntent:
-            stpAssert(checkout == nil, "Checkout should only be provided for a Checkout intent.")
-        }
     }
 
     func update(paymentMethod: STPPaymentMethod,
@@ -62,16 +55,16 @@ final class SavedPaymentMethodManager {
                 throw PaymentSheetError.unknown(debugDescription: "Tried to update a payment method without billing details or expiry details.")
             }
             guard let checkout else {
-                let error = Error.missingCheckout
+                let error = PaymentSheetError.unknown(
+                    debugDescription: "Failed to update a Checkout saved payment method without Checkout."
+                )
                 let errorAnalytic = ErrorAnalytic(
                     event: .unexpectedPaymentSheetError,
                     error: error
                 )
                 STPAnalyticsClient.sharedClient.log(analytic: errorAnalytic)
                 stpAssertionFailure("SavedPaymentMethodManager requires Checkout for a Checkout intent.")
-                throw PaymentSheetError.unknown(
-                    debugDescription: "Failed to update a Checkout saved payment method without Checkout."
-                )
+                throw error
             }
             let updatedPaymentMethod = try await checkout.updateSavedPaymentMethod(
                 paymentMethod.stripeId,

@@ -44,7 +44,7 @@ final class SavedPaymentMethodBillingSyncTests: APIStubbedTestCase {
 
         // Then
         XCTAssertEqual(selectedRow.rowButton.alpha, 0.6, accuracy: 0.001)
-        XCTAssertEqual(activityIndicatorCount(in: selectedRow), 1)
+        XCTAssertEqual(activityIndicator(in: selectedRow)?.isAnimating, true)
         XCTAssertFalse(sut.allowsDragToDismiss)
         XCTAssertEqual(delegate.completionCount, 0)
         await fulfillment(of: [updateRequest, delegate.completed], timeout: 5)
@@ -79,7 +79,7 @@ final class SavedPaymentMethodBillingSyncTests: APIStubbedTestCase {
         XCTAssertTrue(firstRow.isSelected)
         XCTAssertFalse(secondRow.isSelected)
         XCTAssertEqual(secondRow.rowButton.alpha, 1)
-        XCTAssertEqual(activityIndicatorCount(in: secondRow), 0)
+        XCTAssertEqual(activityIndicator(in: secondRow)?.isAnimating, false)
         XCTAssertFalse(sut._testErrorLabel.isHidden)
         XCTAssertEqual(sut._testErrorLabel.text, "Tax update failed")
         XCTAssertTrue(sut.allowsDragToDismiss)
@@ -117,113 +117,33 @@ final class SavedPaymentMethodBillingSyncTests: APIStubbedTestCase {
             .stripeId(firstPaymentMethod.stripeId)
         )
         XCTAssertEqual(selectedRow.rowButton.alpha, 1)
-        XCTAssertEqual(activityIndicatorCount(in: selectedRow), 0)
+        XCTAssertEqual(activityIndicator(in: selectedRow)?.isAnimating, false)
     }
 
     func testEmbeddedManageSelection_withoutBillingTax_completesWithoutLoading() async throws {
-        // Given
-        let checkout = try await makeCheckout(automaticTaxEnabled: false)
-        let firstPaymentMethod = makeSavedPaymentMethod(id: "pm_first", country: "US")
-        let secondPaymentMethod = makeSavedPaymentMethod(id: "pm_second", country: "CA")
-        let delegate = MockVerticalSavedPaymentMethodsDelegate()
-        let sut = makeEmbeddedManageController(
-            checkout: checkout,
-            paymentMethods: [firstPaymentMethod, secondPaymentMethod],
-            selectedPaymentMethod: firstPaymentMethod
+        try await assertEmbeddedSelectionCompletesWithoutLoading(
+            checkout: makeCheckout(automaticTaxEnabled: false)
         )
-        sut.delegate = delegate
-        sut.loadViewIfNeeded()
-        let selectedRow = sut._testPaymentMethodRows[1]
-
-        // When
-        selectedRow.rowButton.handleTap()
-
-        // Then
-        XCTAssertEqual(selectedRow.rowButton.alpha, 1)
-        XCTAssertEqual(activityIndicatorCount(in: selectedRow), 0)
-        await fulfillment(of: [delegate.completed], timeout: 5)
     }
 
     func testEmbeddedManageSelection_withShippingTax_completesWithoutLoading() async throws {
-        // Given
-        let checkout = try await makeCheckout(
-            automaticTaxEnabled: true,
-            automaticTaxAddressSource: "session.shipping"
+        try await assertEmbeddedSelectionCompletesWithoutLoading(
+            checkout: makeCheckout(
+                automaticTaxEnabled: true,
+                automaticTaxAddressSource: "session.shipping"
+            )
         )
-        let firstPaymentMethod = makeSavedPaymentMethod(id: "pm_first", country: "US")
-        let secondPaymentMethod = makeSavedPaymentMethod(id: "pm_second", country: "CA")
-        let delegate = MockVerticalSavedPaymentMethodsDelegate()
-        let sut = makeEmbeddedManageController(
-            checkout: checkout,
-            paymentMethods: [firstPaymentMethod, secondPaymentMethod],
-            selectedPaymentMethod: firstPaymentMethod
-        )
-        sut.delegate = delegate
-        sut.loadViewIfNeeded()
-        let selectedRow = sut._testPaymentMethodRows[1]
-
-        // When
-        selectedRow.rowButton.handleTap()
-
-        // Then
-        XCTAssertEqual(selectedRow.rowButton.alpha, 1)
-        XCTAssertEqual(activityIndicatorCount(in: selectedRow), 0)
-        await fulfillment(of: [delegate.completed], timeout: 5)
     }
 
     func testEmbeddedManageSelection_withoutBillingCountry_completesWithoutLoading() async throws {
-        // Given
-        let checkout = try await makeCheckout(automaticTaxEnabled: true)
-        let firstPaymentMethod = makeSavedPaymentMethod(id: "pm_first", country: "US")
-        let secondPaymentMethod = makeSavedPaymentMethod(id: "pm_second", country: "")
-        let delegate = MockVerticalSavedPaymentMethodsDelegate()
-        let sut = makeEmbeddedManageController(
-            checkout: checkout,
-            paymentMethods: [firstPaymentMethod, secondPaymentMethod],
-            selectedPaymentMethod: firstPaymentMethod
+        try await assertEmbeddedSelectionCompletesWithoutLoading(
+            checkout: makeCheckout(automaticTaxEnabled: true),
+            selectedCountry: ""
         )
-        sut.delegate = delegate
-        sut.loadViewIfNeeded()
-        let selectedRow = sut._testPaymentMethodRows[1]
-
-        // When
-        selectedRow.rowButton.handleTap()
-
-        // Then
-        XCTAssertEqual(selectedRow.rowButton.alpha, 1)
-        XCTAssertEqual(activityIndicatorCount(in: selectedRow), 0)
-        await fulfillment(of: [delegate.completed], timeout: 5)
     }
 
     func testEmbeddedManageSelection_withoutCheckout_completesWithoutLoading() async throws {
-        // Given
-        var configuration = EmbeddedPaymentElement.Configuration()
-        configuration.apiClient = APIStubbedTestCase.stubbedAPIClient()
-        let firstPaymentMethod = makeSavedPaymentMethod(id: "pm_first", country: "US")
-        let secondPaymentMethod = makeSavedPaymentMethod(id: "pm_second", country: "CA")
-        let delegate = MockVerticalSavedPaymentMethodsDelegate()
-        let sut = VerticalSavedPaymentMethodsViewController(
-            configuration: configuration,
-            intent: ._testValue(),
-            checkout: nil,
-            selectionCompletionBehavior: .completesImmediately,
-            selectedPaymentMethod: firstPaymentMethod,
-            paymentMethods: [firstPaymentMethod, secondPaymentMethod],
-            elementsSession: ._testValue(paymentMethodTypes: ["card"]),
-            analyticsHelper: ._testValue(),
-            defaultPaymentMethod: nil
-        )
-        sut.delegate = delegate
-        sut.loadViewIfNeeded()
-        let selectedRow = sut._testPaymentMethodRows[1]
-
-        // When
-        selectedRow.rowButton.handleTap()
-
-        // Then
-        XCTAssertEqual(selectedRow.rowButton.alpha, 1)
-        XCTAssertEqual(activityIndicatorCount(in: selectedRow), 0)
-        await fulfillment(of: [delegate.completed], timeout: 5)
+        try await assertEmbeddedSelectionCompletesWithoutLoading(checkout: nil)
     }
 
     // MARK: Billing sync requirement
@@ -274,22 +194,16 @@ final class SavedPaymentMethodBillingSyncTests: APIStubbedTestCase {
         XCTAssertEqual(activityIndicator(in: cell.selectedIcon)?.alpha, 1)
 
         // When
-        cell.showSuccess(animated: false)
+        cell.showSuccess()
 
         // Then
         XCTAssertEqual(cell.selectedIcon.imageView.alpha, 1)
-        XCTAssertEqual(
-            (cell.selectedIcon.subviews.first { $0 is ActivityIndicator }
-                as? ActivityIndicator)?.isAnimating,
-            false
-        )
-
         // When
         cell.setLoading(false)
 
         // Then
         XCTAssertEqual(cell.paymentMethodLogo.alpha, 1)
-        XCTAssertEqual(activityIndicatorCount(in: cell.selectedIcon), 0)
+        XCTAssertEqual(activityIndicator(in: cell.selectedIcon)?.isAnimating, false)
     }
 
     func testHorizontalSavedSelection_withoutCTA_syncsBeforeClosing() async throws {
@@ -342,7 +256,7 @@ final class SavedPaymentMethodBillingSyncTests: APIStubbedTestCase {
         XCTAssertTrue(sut.isDismissable)
         XCTAssertTrue(sut.view.isUserInteractionEnabled)
         XCTAssertEqual(selectedCell.paymentMethodLogo.alpha, 1)
-        XCTAssertEqual(activityIndicatorCount(in: selectedCell.selectedIcon), 0)
+        XCTAssertEqual(activityIndicator(in: selectedCell.selectedIcon)?.isAnimating, false)
     }
 
     func testHorizontalSavedSelection_syncFails_restoresSelectionAndShowsError() async throws {
@@ -387,7 +301,7 @@ final class SavedPaymentMethodBillingSyncTests: APIStubbedTestCase {
         XCTAssertFalse(sut._testErrorLabel.isHidden)
         XCTAssertEqual(sut._testErrorLabel.text, "Tax update failed")
         XCTAssertEqual(selectedCell.paymentMethodLogo.alpha, 1)
-        XCTAssertEqual(activityIndicatorCount(in: selectedCell.selectedIcon), 0)
+        XCTAssertEqual(activityIndicator(in: selectedCell.selectedIcon)?.isAnimating, false)
         XCTAssertEqual(delegate.closeCount, 0)
     }
 
@@ -435,7 +349,7 @@ final class SavedPaymentMethodBillingSyncTests: APIStubbedTestCase {
         XCTAssertEqual(requestRecorder.requests.count, 0)
         XCTAssertTrue(sut.isDismissable)
         XCTAssertEqual(selectedCell.paymentMethodLogo.alpha, 1)
-        XCTAssertEqual(activityIndicatorCount(in: selectedCell.selectedIcon), 0)
+        XCTAssertEqual(activityIndicator(in: selectedCell.selectedIcon)?.isAnimating, false)
         XCTAssertEqual(delegate.closeCount, 0)
 
         // When tapping Continue
@@ -816,7 +730,7 @@ private extension SavedPaymentMethodBillingSyncTests {
     }
 
     func makeEmbeddedManageController(
-        checkout: Checkout,
+        checkout: Checkout?,
         paymentMethods: [STPPaymentMethod],
         selectedPaymentMethod: STPPaymentMethod
     ) -> VerticalSavedPaymentMethodsViewController {
@@ -824,15 +738,41 @@ private extension SavedPaymentMethodBillingSyncTests {
         configuration.apiClient = APIStubbedTestCase.stubbedAPIClient()
         return VerticalSavedPaymentMethodsViewController(
             configuration: configuration,
-            intent: .checkout(checkout.session),
+            intent: checkout.map { .checkout($0.session) } ?? ._testValue(),
             checkout: checkout,
-            selectionCompletionBehavior: .syncsCheckoutBillingBeforeCompletion,
+            syncsCheckoutBillingBeforeCompletion: checkout != nil,
             selectedPaymentMethod: selectedPaymentMethod,
             paymentMethods: paymentMethods,
             elementsSession: ._testValue(paymentMethodTypes: ["card", "sepa_debit"]),
             analyticsHelper: ._testValue(),
             defaultPaymentMethod: nil
         )
+    }
+
+    func assertEmbeddedSelectionCompletesWithoutLoading(
+        checkout: Checkout?,
+        selectedCountry: String = "CA"
+    ) async throws {
+        let firstPaymentMethod = makeSavedPaymentMethod(id: "pm_first", country: "US")
+        let selectedPaymentMethod = makeSavedPaymentMethod(
+            id: "pm_second",
+            country: selectedCountry
+        )
+        let delegate = MockVerticalSavedPaymentMethodsDelegate()
+        let sut = makeEmbeddedManageController(
+            checkout: checkout,
+            paymentMethods: [firstPaymentMethod, selectedPaymentMethod],
+            selectedPaymentMethod: firstPaymentMethod
+        )
+        sut.delegate = delegate
+        sut.loadViewIfNeeded()
+        let selectedRow = sut._testPaymentMethodRows[1]
+
+        selectedRow.rowButton.handleTap()
+
+        XCTAssertEqual(selectedRow.rowButton.alpha, 1)
+        XCTAssertEqual(activityIndicator(in: selectedRow)?.isAnimating, false)
+        await fulfillment(of: [delegate.completed], timeout: 5)
     }
 
     func makeHorizontalController(

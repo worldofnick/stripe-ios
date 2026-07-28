@@ -266,12 +266,16 @@ class SavedPaymentOptionsViewController: UIViewController {
         return IndexPath(item: index, section: 0)
     }
 
-    private var currentSelection: Selection? {
-        guard let selectedViewModelIndex,
-              viewModels.indices.contains(selectedViewModelIndex) else {
-            return nil
+    private var selectionSnapshot: SelectionSnapshot {
+        let selection = selectedViewModelIndex.flatMap {
+            viewModels.stp_boundSafeObject(at: $0)
         }
-        return viewModels[selectedViewModelIndex]
+        return SelectionSnapshot(
+            selection: selection,
+            persistedPaymentOption: CustomerPaymentOption.localDefaultPaymentMethod(
+                for: configuration.customerID
+            )
+        )
     }
     private lazy var cvcFormElement: PaymentMethodElement = {
         return makeElement()
@@ -512,10 +516,7 @@ class SavedPaymentOptionsViewController: UIViewController {
         _ loading: Bool,
         for selection: Selection
     ) {
-        guard let cell = cell(for: selection) else {
-            return
-        }
-        cell.setLoading(loading)
+        cell(for: selection)?.setLoading(loading)
     }
 
     /// Transitions the spinner to a checkmark after a successful saved-method sync.
@@ -531,16 +532,13 @@ class SavedPaymentOptionsViewController: UIViewController {
             snapshot.persistedPaymentOption,
             forCustomer: configuration.customerID
         )
-        guard let selection = snapshot.selection,
-              let index = viewModels.firstIndex(where: { $0.matches(selection) }) else {
+        if let selection = snapshot.selection,
+           let index = viewModels.firstIndex(where: { $0.matches(selection) }) {
+            selectedViewModelIndex = index
+            collectionView.selectItem(at: selectedIndexPath, animated: false, scrollPosition: [])
+        } else {
             selectedViewModelIndex = nil
-            updateMandateView()
-            updateFormElement()
-            return
         }
-
-        selectedViewModelIndex = index
-        collectionView.selectItem(at: selectedIndexPath, animated: false, scrollPosition: [])
         updateMandateView()
         updateFormElement()
     }
@@ -680,12 +678,7 @@ extension SavedPaymentOptionsViewController: UICollectionViewDataSource, UIColle
             delegate?.didUpdateSelection(
                 viewController: self,
                 paymentMethodSelection: viewModel,
-                previousSelection: SelectionSnapshot(
-                    selection: currentSelection,
-                    persistedPaymentOption: CustomerPaymentOption.localDefaultPaymentMethod(
-                        for: configuration.customerID
-                    )
-                )
+                previousSelection: selectionSnapshot
             )
             return false
         }
@@ -693,12 +686,7 @@ extension SavedPaymentOptionsViewController: UICollectionViewDataSource, UIColle
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        let previousSelection = SelectionSnapshot(
-            selection: currentSelection,
-            persistedPaymentOption: CustomerPaymentOption.localDefaultPaymentMethod(
-                for: configuration.customerID
-            )
-        )
+        let previousSelection = selectionSnapshot
         selectedViewModelIndex = indexPath.item
         let viewModel = viewModels[indexPath.item]
 
