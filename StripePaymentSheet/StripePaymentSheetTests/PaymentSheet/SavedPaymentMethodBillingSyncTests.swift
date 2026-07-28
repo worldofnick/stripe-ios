@@ -249,7 +249,7 @@ final class SavedPaymentMethodBillingSyncTests: APIStubbedTestCase {
 
     // MARK: Horizontal FlowController
 
-    func testHorizontalSavedCell_loadingDimsLogo() {
+    func testHorizontalSavedCell_loadingUsesSelectionIndicatorAndShowsSuccess() {
         // Given
         let paymentMethod = makeSavedPaymentMethod(id: "pm_saved", country: "US")
         let cell = SavedPaymentMethodCollectionView.PaymentOptionCell(
@@ -266,15 +266,29 @@ final class SavedPaymentMethodBillingSyncTests: APIStubbedTestCase {
         cell.setLoading(true)
 
         // Then
-        XCTAssertEqual(cell.paymentMethodLogo.alpha, 0.4, accuracy: 0.001)
-        XCTAssertEqual(activityIndicatorCount(in: cell.selectableRectangle), 1)
+        XCTAssertEqual(cell.paymentMethodLogo.alpha, 1)
+        XCTAssertFalse(cell.selectedIcon.isHidden)
+        XCTAssertEqual(cell.selectedIcon.imageView.alpha, 0)
+        XCTAssertEqual(activityIndicatorCount(in: cell.selectableRectangle), 0)
+        XCTAssertEqual(activityIndicatorCount(in: cell.selectedIcon), 1)
+
+        // When
+        cell.showSuccess(animated: false)
+
+        // Then
+        XCTAssertEqual(cell.selectedIcon.imageView.alpha, 1)
+        XCTAssertEqual(
+            (cell.selectedIcon.subviews.first { $0 is ActivityIndicator }
+                as? ActivityIndicator)?.isAnimating,
+            false
+        )
 
         // When
         cell.setLoading(false)
 
         // Then
         XCTAssertEqual(cell.paymentMethodLogo.alpha, 1)
-        XCTAssertEqual(activityIndicatorCount(in: cell.selectableRectangle), 0)
+        XCTAssertEqual(activityIndicatorCount(in: cell.selectedIcon), 0)
     }
 
     func testHorizontalSavedSelection_withoutCTA_syncsBeforeClosing() async throws {
@@ -310,16 +324,24 @@ final class SavedPaymentMethodBillingSyncTests: APIStubbedTestCase {
 
         // Then
         XCTAssertFalse(sut.isDismissable)
-        XCTAssertEqual(selectedCell.paymentMethodLogo.alpha, 0.4, accuracy: 0.001)
-        XCTAssertEqual(activityIndicatorCount(in: selectedCell.selectableRectangle), 1)
+        XCTAssertEqual(selectedCell.paymentMethodLogo.alpha, 0.6, accuracy: 0.001)
+        XCTAssertEqual(selectedCell.selectedIcon.imageView.alpha, 0)
+        XCTAssertEqual(activityIndicatorCount(in: selectedCell.selectableRectangle), 0)
+        XCTAssertEqual(activityIndicatorCount(in: selectedCell.selectedIcon), 1)
         XCTAssertEqual(delegate.closeCount, 0)
-        await fulfillment(of: [updateRequest, delegate.closed], timeout: 5)
+        await fulfillment(of: [updateRequest], timeout: 5)
+        try await waitUntil {
+            selectedCell.selectedIcon.imageView.alpha == 1
+                && activityIndicator(in: selectedCell.selectedIcon)?.isAnimating == false
+        }
+        XCTAssertEqual(delegate.closeCount, 0)
+        await fulfillment(of: [delegate.closed], timeout: 5)
         XCTAssertEqual(delegate.closeCount, 1)
         XCTAssertFalse(delegate.didCancel)
         XCTAssertTrue(sut.isDismissable)
         XCTAssertTrue(sut.view.isUserInteractionEnabled)
         XCTAssertEqual(selectedCell.paymentMethodLogo.alpha, 1)
-        XCTAssertEqual(activityIndicatorCount(in: selectedCell.selectableRectangle), 0)
+        XCTAssertEqual(activityIndicatorCount(in: selectedCell.selectedIcon), 0)
     }
 
     func testHorizontalSavedSelection_syncFails_restoresSelectionAndShowsError() async throws {
@@ -364,7 +386,7 @@ final class SavedPaymentMethodBillingSyncTests: APIStubbedTestCase {
         XCTAssertFalse(sut._testErrorLabel.isHidden)
         XCTAssertEqual(sut._testErrorLabel.text, "Tax update failed")
         XCTAssertEqual(selectedCell.paymentMethodLogo.alpha, 1)
-        XCTAssertEqual(activityIndicatorCount(in: selectedCell.selectableRectangle), 0)
+        XCTAssertEqual(activityIndicatorCount(in: selectedCell.selectedIcon), 0)
         XCTAssertEqual(delegate.closeCount, 0)
     }
 
@@ -412,7 +434,7 @@ final class SavedPaymentMethodBillingSyncTests: APIStubbedTestCase {
         XCTAssertEqual(requestRecorder.requests.count, 0)
         XCTAssertTrue(sut.isDismissable)
         XCTAssertEqual(selectedCell.paymentMethodLogo.alpha, 1)
-        XCTAssertEqual(activityIndicatorCount(in: selectedCell.selectableRectangle), 0)
+        XCTAssertEqual(activityIndicatorCount(in: selectedCell.selectedIcon), 0)
         XCTAssertEqual(delegate.closeCount, 0)
 
         // When tapping Continue
@@ -916,6 +938,10 @@ private extension SavedPaymentMethodBillingSyncTests {
 
     func activityIndicatorCount(in view: UIView) -> Int {
         return view.subviews.compactMap { $0 as? ActivityIndicator }.count
+    }
+
+    func activityIndicator(in view: UIView) -> ActivityIndicator? {
+        return view.subviews.first { $0 is ActivityIndicator } as? ActivityIndicator
     }
 }
 

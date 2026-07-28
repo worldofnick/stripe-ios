@@ -289,7 +289,7 @@ extension SavedPaymentMethodCollectionView {
             update()
         }
 
-        /// Shows or hides the spinner and dims the payment-method logo while loading.
+        /// Replaces the selected checkmark with a spinner while loading.
         func setLoading(_ loading: Bool) {
             guard loading != isLoading else {
                 return
@@ -297,18 +297,68 @@ extension SavedPaymentMethodCollectionView {
             isLoading = loading
 
             if loading {
-                spinner.tintColor = appearance.colors.primary
-                selectableRectangle.addSubview(spinner)
+                selectedIcon.isHidden = false
+                spinner.tintColor = appearance.colors.primary.contrastingColor
+                spinner.alpha = 0
+                selectedIcon.addSubview(spinner)
                 NSLayoutConstraint.activate([
-                    spinner.centerXAnchor.constraint(equalTo: selectableRectangle.centerXAnchor),
-                    spinner.centerYAnchor.constraint(equalTo: selectableRectangle.centerYAnchor),
+                    spinner.centerXAnchor.constraint(equalTo: selectedIcon.centerXAnchor),
+                    spinner.centerYAnchor.constraint(equalTo: selectedIcon.centerYAnchor),
                 ])
                 spinner.startAnimating()
-                paymentMethodLogo.alpha = 0.4
+                UIView.animate(
+                    withDuration: PaymentSheetUI.quickAnimationDuration,
+                    delay: 0,
+                    options: [.beginFromCurrentState, .curveEaseOut]
+                ) {
+                    self.spinner.alpha = 1
+                    self.selectedIcon.imageView.alpha = 0
+                    self.selectedIcon.imageView.transform = CGAffineTransform(
+                        scaleX: 0.65,
+                        y: 0.65
+                    )
+                }
             } else {
                 spinner.stopAnimating()
                 spinner.removeFromSuperview()
-                paymentMethodLogo.alpha = 1
+                spinner.alpha = 1
+                selectedIcon.imageView.layer.removeAllAnimations()
+                selectedIcon.imageView.alpha = 1
+                selectedIcon.imageView.transform = .identity
+                selectedIcon.isHidden = !isSelected
+            }
+        }
+
+        /// Smoothly transitions the loading spinner back into the selected checkmark.
+        func showSuccess(animated: Bool = true) {
+            guard isLoading else {
+                return
+            }
+
+            let showCheckmark = {
+                self.spinner.stopAnimating()
+                self.spinner.alpha = 0
+                self.selectedIcon.imageView.alpha = 1
+                self.selectedIcon.imageView.transform = .identity
+            }
+
+            guard animated else {
+                showCheckmark()
+                return
+            }
+
+            UIView.animate(
+                withDuration: 0.25,
+                delay: 0,
+                usingSpringWithDamping: 0.72,
+                initialSpringVelocity: 0.4,
+                options: [.beginFromCurrentState, .curveEaseOut]
+            ) {
+                self.spinner.alpha = 0
+                self.selectedIcon.imageView.alpha = 1
+                self.selectedIcon.imageView.transform = .identity
+            } completion: { _ in
+                self.spinner.stopAnimating()
             }
         }
 

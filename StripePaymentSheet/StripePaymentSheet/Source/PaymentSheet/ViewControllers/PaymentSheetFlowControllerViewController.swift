@@ -617,6 +617,8 @@ extension PaymentSheetFlowControllerViewController: SavedPaymentOptionsViewContr
         )
     }
 
+    private static let savedPaymentMethodSuccessDisplayDuration: UInt64 = 450_000_000
+
     func didUpdate(_ viewController: SavedPaymentOptionsViewController) {
         // no-op
     }
@@ -715,6 +717,12 @@ extension PaymentSheetFlowControllerViewController: SavedPaymentOptionsViewContr
                 return
             }
 
+            if case .savedPaymentMethod(let selection, _) = ui {
+                self.savedPaymentOptionsViewController.showSuccess(for: selection)
+                try? await Task.sleep(
+                    nanoseconds: Self.savedPaymentMethodSuccessDisplayDuration
+                )
+            }
             self.setCheckoutBillingSyncInProgress(false, ui: ui)
             self.flowControllerDelegate?.flowControllerViewControllerShouldClose(
                 self,

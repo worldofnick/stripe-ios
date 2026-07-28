@@ -512,12 +512,15 @@ class SavedPaymentOptionsViewController: UIViewController {
         _ loading: Bool,
         for selection: Selection
     ) {
-        guard let index = viewModels.firstIndex(where: { $0.matches(selection) }),
-              let cell = collectionView.cellForItem(at: IndexPath(item: index, section: 0))
-                as? SavedPaymentMethodCollectionView.PaymentOptionCell else {
+        guard let cell = cell(for: selection) else {
             return
         }
         cell.setLoading(loading)
+    }
+
+    /// Transitions the spinner to a checkmark after a successful saved-method sync.
+    func showSuccess(for selection: Selection) {
+        cell(for: selection)?.showSuccess()
     }
 
     func restoreSelection(_ snapshot: SelectionSnapshot) {
@@ -573,6 +576,16 @@ class SavedPaymentOptionsViewController: UIViewController {
     private func isDefaultPaymentMethod(savedPaymentMethodId: String?) -> Bool {
         guard configuration.allowsSetAsDefaultPM, let savedPaymentMethodId, let defaultPaymentMethod else { return false }
         return savedPaymentMethodId == defaultPaymentMethod.stripeId
+    }
+
+    private func cell(
+        for selection: Selection
+    ) -> SavedPaymentMethodCollectionView.PaymentOptionCell? {
+        guard let index = viewModels.firstIndex(where: { $0.matches(selection) }) else {
+            return nil
+        }
+        return collectionView.cellForItem(at: IndexPath(item: index, section: 0))
+            as? SavedPaymentMethodCollectionView.PaymentOptionCell
     }
 
     // MARK: - Helpers

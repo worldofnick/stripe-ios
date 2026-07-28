@@ -338,7 +338,10 @@ extension SavedPaymentMethodManagerTests {
         let clientSecret = "\(session.makePublicSession().id)_secret_test"
         let configuration = CheckoutTestHelpers.makeConfiguration(
             apiResponse: session,
-            configuration: .init(clientSecret: clientSecret),
+            configuration: .init(
+                clientSecret: clientSecret,
+                returnURL: "stripe-ios-test://checkout-return"
+            ),
             stubAllOutgoingRequests: false
         )
         return try await Checkout(configuration: configuration)
