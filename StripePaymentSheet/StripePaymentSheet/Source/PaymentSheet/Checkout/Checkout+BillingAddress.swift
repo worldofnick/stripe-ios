@@ -12,13 +12,9 @@ import Foundation
 extension Checkout {
     /// Syncs the payment method's billing address to Checkout tax calculation when needed.
     func syncBillingAddress(from billingDetails: STPPaymentMethodBillingDetails?) async throws {
-        // Billing details are optional on payment methods. A country is the minimum information
-        // Checkout needs to calculate tax, so there is nothing to sync without one.
         guard session.collectsTaxFromBillingAddress,
               let source = billingDetails?.address,
-              let country = source.country?.nonEmpty else {
-            return
-        }
+              let country = source.country?.nonEmpty else { return }
         try await updateBillingTaxRegionIfNecessary(
             address: Address(
                 country: country,

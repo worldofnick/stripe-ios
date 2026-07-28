@@ -315,11 +315,9 @@ class EmbeddedPaymentMethodsView: UIView {
     }
 
     /// Displays an error below the payment method rows, or clears it when `error` is nil.
-    func setError(_ error: Swift.Error?, animated: Bool = true) {
+    func setError(_ error: Error?, animated: Bool = true) {
         let message = error?.nonGenericDescription
-        guard message != errorLabel.text else {
-            return
-        }
+        guard message != errorLabel.text else { return }
         errorLabel.text = message
         let updates = {
             self.errorContainerView.setHiddenIfNecessary(message == nil)
@@ -336,7 +334,6 @@ class EmbeddedPaymentMethodsView: UIView {
         }
     }
 
-    @discardableResult
     func selectSavedPaymentMethod(withStripeId stripeId: String) -> Bool {
         guard let rowButton = rowButtons.first(where: {
             $0.type.savedPaymentMethod?.stripeId == stripeId
@@ -355,9 +352,7 @@ class EmbeddedPaymentMethodsView: UIView {
 
     // MARK: Tap handling
     func didTap(rowButton: RowButton) {
-        guard isUserInteractionEnabled else {
-            return
-        }
+        guard isUserInteractionEnabled else { return }
         setError(nil)
         delegate?.embeddedPaymentMethodsViewWillSelect(rowButton.type)
         self.selectedRowButton = rowButton

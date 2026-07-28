@@ -38,16 +38,11 @@ class RowButton: UIView, EventHandler {
         loadingIndicator.translatesAutoresizingMaskIntoConstraints = false
         return loadingIndicator
     }()
-    private lazy var loadingIndicatorConstraints = [
-        loadingIndicator.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
-        loadingIndicator.centerYAnchor.constraint(equalTo: imageView.centerYAnchor),
-    ]
 
     // MARK: State
 
     private(set) var isSelected: Bool = false
     private(set) var isLoading: Bool = false
-    private var keyContentAlpha: CGFloat = 1
 
     /// When enabled the `didTap` closure will be called when the button is tapped. When false the `didTap` closure will not be called on taps
     var isEnabled: Bool = true {
@@ -195,7 +190,6 @@ class RowButton: UIView, EventHandler {
     }
 
     func setKeyContent(alpha: CGFloat) {
-        keyContentAlpha = alpha
         imageView.alpha = isLoading ? 0 : alpha
         label.alpha = alpha
         sublabel.alpha = alpha
@@ -208,7 +202,10 @@ class RowButton: UIView, EventHandler {
 
         if loading {
             addSubview(loadingIndicator)
-            NSLayoutConstraint.activate(loadingIndicatorConstraints)
+            NSLayoutConstraint.activate([
+                loadingIndicator.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
+                loadingIndicator.centerYAnchor.constraint(equalTo: imageView.centerYAnchor),
+            ])
             loadingIndicator.alpha = 0
             loadingIndicator.startAnimating()
         }
@@ -216,11 +213,10 @@ class RowButton: UIView, EventHandler {
         let animations = { [weak self] in
             guard let self else { return }
             loadingIndicator.alpha = loading ? 1 : 0
-            imageView.alpha = loading ? 0 : keyContentAlpha
+            imageView.alpha = loading ? 0 : label.alpha
         }
         let completion: (Bool) -> Void = { [weak self] _ in
-            guard let self else { return }
-            guard self.isLoading == loading, !loading else { return }
+            guard let self, self.isLoading == loading, !loading else { return }
             self.loadingIndicator.stopAnimating()
             self.loadingIndicator.removeFromSuperview()
         }
@@ -233,7 +229,7 @@ class RowButton: UIView, EventHandler {
         UIView.animate(
             withDuration: 0.2,
             delay: 0,
-            options: [.beginFromCurrentState, .allowUserInteraction],
+            options: .beginFromCurrentState,
             animations: animations,
             completion: completion
         )

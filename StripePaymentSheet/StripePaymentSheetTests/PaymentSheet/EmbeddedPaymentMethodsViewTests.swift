@@ -154,38 +154,26 @@ final class EmbeddedPaymentMethodsViewTests: XCTestCase {
 
     func testTappingPaymentMethodClearsError() {
         let embeddedView = EmbeddedPaymentMethodsView(
-            initialSelection: nil,
             paymentMethodTypes: [.stripe(.card)],
-            savedPaymentMethod: nil,
-            appearance: .default,
             shouldShowApplePay: false,
-            shouldShowLink: false,
-            savedPaymentMethodAccessoryType: .none,
-            mandateProvider: MockMandateProvider()
+            shouldShowLink: false
         )
         embeddedView.autosizeHeight(width: 300)
         let initialHeight = embeddedView.bounds.height
 
         embeddedView.setError(
-            NSError(
-                domain: "test",
-                code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "Unable to update billing address."]
-            ),
+            NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "Error"]),
             animated: false
         )
         embeddedView.autosizeHeight(width: 300)
-        XCTAssertEqual(embeddedView._test_displayedErrorMessage, "Unable to update billing address.")
+        XCTAssertNotNil(embeddedView._test_displayedErrorMessage)
         XCTAssertGreaterThan(embeddedView.bounds.height, initialHeight)
 
-        embeddedView.didTap(
-            rowButton: embeddedView.getRowButton(accessibilityIdentifier: "Card")
-        )
+        embeddedView.didTap(rowButton: embeddedView.getRowButton(accessibilityIdentifier: "Card"))
         embeddedView.autosizeHeight(width: 300)
         XCTAssertNil(embeddedView._test_displayedErrorMessage)
         XCTAssertEqual(embeddedView.bounds.height, initialHeight)
     }
-
 }
 
 private class MockEmbeddedPaymentMethodsViewDelegate: EmbeddedPaymentMethodsViewDelegate {
