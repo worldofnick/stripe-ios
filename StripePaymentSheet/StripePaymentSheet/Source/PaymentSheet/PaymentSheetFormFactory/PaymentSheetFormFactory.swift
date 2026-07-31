@@ -19,8 +19,7 @@ import UIKit
  */
 class PaymentSheetFormFactory {
     enum Error: Swift.Error {
-        case missingFormSpec
-        case missingV1FromSelectorSpec
+        case unsupportedPaymentMethod
     }
 
     let paymentMethod: PaymentSheet.PaymentMethodType
@@ -299,26 +298,24 @@ class PaymentSheetFormFactory {
                 return makeAUBECSDebit()
             case .FPX:
                 return makeFPX()
-            case .netBanking, .weChatPay,
-                 .link, .cardPresent, .unknown:
-                return makeFormSpecBasedForm(for: paymentMethod)
+            case .netBanking, .weChatPay, .link, .cardPresent, .unknown:
+                return makeUnsupportedPaymentMethodForm(for: paymentMethod)
             @unknown default:
-                return makeFormSpecBasedForm(for: paymentMethod)
+                return makeUnsupportedPaymentMethodForm(for: paymentMethod)
             }
         }
     }
 
-    private func makeFormSpecBasedForm(for paymentMethod: STPPaymentMethodType) -> PaymentMethodElement {
-        guard let spec = FormSpecProvider.shared.formSpec(for: paymentMethod.identifier) else {
-            let errorAnalytic = ErrorAnalytic(
-                event: .unexpectedPaymentSheetFormFactoryError,
-                error: Error.missingFormSpec,
-                additionalNonPIIParams: ["payment_method": paymentMethod.identifier]
-            )
-            analyticsHelper?.analyticsClient.log(analytic: errorAnalytic)
-            return FormElement(elements: [], theme: theme)
-        }
-        return makeFormElementFromSpec(spec: spec)
+    private func makeUnsupportedPaymentMethodForm(
+        for paymentMethod: STPPaymentMethodType
+    ) -> PaymentMethodElement {
+        let errorAnalytic = ErrorAnalytic(
+            event: .unexpectedPaymentSheetFormFactoryError,
+            error: Error.unsupportedPaymentMethod,
+            additionalNonPIIParams: ["payment_method": paymentMethod.identifier]
+        )
+        analyticsHelper?.analyticsClient.log(analytic: errorAnalytic)
+        return FormElement(elements: [], theme: theme)
     }
 
     private func makeSetupMandateElements(for paymentMethod: STPPaymentMethodType) -> [Element] {
