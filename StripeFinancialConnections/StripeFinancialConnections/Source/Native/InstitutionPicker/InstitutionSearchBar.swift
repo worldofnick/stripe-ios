@@ -133,6 +133,11 @@ final class InstitutionSearchBar: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        textField.textAlignment = effectiveUserInterfaceLayoutDirection == .rightToLeft ? .right : .left
+    }
+
     @discardableResult override func becomeFirstResponder() -> Bool {
         return textField.becomeFirstResponder()
     }

@@ -27,6 +27,8 @@ final class AttributedTextView: HitTestView {
     private let linkFont: FinancialConnectionsFont
     private let textColor: UIColor
     private let alignment: NSTextAlignment?
+    private let directionalAlignment: UIStackView.Alignment?
+    private var appliedDirectionalTextAlignment: NSTextAlignment?
     private let textView: IncreasedHitTestTextView
     private var linkURLStringToAction: [String: (URL) -> Void] = [:]
 
@@ -47,7 +49,8 @@ final class AttributedTextView: HitTestView {
         // links are the same color as the text by default
         linkColor: UIColor? = nil,
         showLinkUnderline: Bool = true,
-        alignment: NSTextAlignment? = nil
+        alignment: NSTextAlignment? = nil,
+        directionalAlignment: UIStackView.Alignment? = nil
     ) {
         let linkColor = linkColor ?? textColor
         let textContainer = NSTextContainer(size: .zero)
@@ -64,6 +67,7 @@ final class AttributedTextView: HitTestView {
         self.linkFont = linkFont
         self.textColor = textColor
         self.alignment = alignment
+        self.directionalAlignment = directionalAlignment
         super.init(frame: .zero)
         textView.isScrollEnabled = false
         textView.delaysContentTouches = false
@@ -107,6 +111,43 @@ final class AttributedTextView: HitTestView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        updateDirectionalTextAlignmentIfNeeded()
+    }
+
+    private func updateDirectionalTextAlignmentIfNeeded() {
+        guard let directionalAlignment, textView.attributedText.length > 0 else {
+            return
+        }
+        let isRightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
+        let textAlignment: NSTextAlignment
+        switch directionalAlignment {
+        case .leading:
+            textAlignment = isRightToLeft ? .right : .left
+        case .trailing:
+            textAlignment = isRightToLeft ? .left : .right
+        default:
+            return
+        }
+        guard appliedDirectionalTextAlignment != textAlignment else {
+            return
+        }
+
+        let attributedText = NSMutableAttributedString(attributedString: textView.attributedText)
+        let paragraphStyle = (
+            attributedText.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+        )?.mutableCopy() as? NSMutableParagraphStyle ?? NSMutableParagraphStyle()
+        paragraphStyle.alignment = textAlignment
+        attributedText.addAttribute(
+            .paragraphStyle,
+            value: paragraphStyle,
+            range: NSRange(location: 0, length: attributedText.length)
+        )
+        textView.attributedText = attributedText
+        appliedDirectionalTextAlignment = textAlignment
+    }
+
     /// Helper that automatically handles extracting links and, optionally, opening it via `SFSafariViewController`
         func setText(
         _ text: String,
@@ -131,6 +172,7 @@ final class AttributedTextView: HitTestView {
         _ text: String,
         links: [LinkDescriptor]
     ) {
+        appliedDirectionalTextAlignment = nil
         let paragraphStyle = NSMutableParagraphStyle()
         if let alignment {
             paragraphStyle.alignment = alignment
@@ -160,6 +202,7 @@ final class AttributedTextView: HitTestView {
         string.addBoldFontAttributesByMarkdownRules(boldFont: boldFont.uiFont)
 
         textView.attributedText = string
+        setNeedsLayout()
     }
 }
 
