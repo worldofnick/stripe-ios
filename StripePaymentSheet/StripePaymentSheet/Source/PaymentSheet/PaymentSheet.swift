@@ -80,6 +80,9 @@ public class PaymentSheet {
     /// The most recent error encountered by the customer, if any.
     public internal(set) var mostRecentError: Error?
 
+    /// A test-only layout direction applied to PaymentSheet's presentation roots.
+    @_spi(STP) public var testLayoutDirection: UIUserInterfaceLayoutDirection?
+
     /// Initializes a PaymentSheet
     /// - Parameter paymentIntentClientSecret: The [client secret](https://stripe.com/docs/api/payment_intents/object#payment_intent_object-client_secret) of a Stripe PaymentIntent object
     /// - Note: This can be used to complete a payment - don't log it, store it, or expose it to anyone other than the customer.
@@ -155,6 +158,7 @@ public class PaymentSheet {
                             loadResult: loadResult,
                             previousPaymentOption: nil
                         )
+                        self.applyTestLayoutDirection(to: paymentSheetVC)
                         self.bottomSheetViewController.setViewControllers([paymentSheetVC])
                     }
                     if let linkAccount = LinkAccountContext.shared.account,
@@ -189,6 +193,7 @@ public class PaymentSheet {
                     self.completion?(.failed(error: error))
                 }
             }
+            self.applyTestLayoutDirection(to: self.loadingViewController)
             self.bottomSheetViewController.setViewControllers([self.loadingViewController])
             presentingViewController.presentAsBottomSheet(bottomSheetViewController, appearance: configuration.appearance)
         }
@@ -304,6 +309,15 @@ public class PaymentSheet {
     let analyticsHelper: PaymentSheetAnalyticsHelper
 
     var confirmationChallenge: ConfirmationChallenge?
+
+    private func applyTestLayoutDirection(to viewController: BottomSheetContentViewController) {
+        guard let testLayoutDirection else { return }
+        let semanticContentAttribute: UISemanticContentAttribute = testLayoutDirection == .rightToLeft
+            ? .forceRightToLeft
+            : .forceLeftToRight
+        viewController.view.semanticContentAttribute = semanticContentAttribute
+        viewController.navigationBar.semanticContentAttribute = semanticContentAttribute
+    }
 
     // MARK: - Factory & Reload
     @MainActor

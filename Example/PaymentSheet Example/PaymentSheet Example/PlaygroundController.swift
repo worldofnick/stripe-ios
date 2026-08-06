@@ -720,6 +720,19 @@ import UIKit
         PlaygroundLayoutDirection.apply(layoutDirection, to: window)
     }
 
+    private func paymentSheetTestLayoutDirection(
+        for layoutDirection: PaymentSheetTestPlaygroundSettings.LayoutDirection?
+    ) -> UIUserInterfaceLayoutDirection? {
+        switch layoutDirection ?? .system {
+        case .system:
+            return nil
+        case .leftToRight:
+            return .leftToRight
+        case .rightToLeft:
+            return .rightToLeft
+        }
+    }
+
     func buildPaymentSheet() {
         let mc: PaymentSheet
 
@@ -737,6 +750,7 @@ import UIKit
             fatalError("PaymentSheet does not support checkout session initialization. Use FlowController or EmbeddedPaymentElement instead.")
         }
 
+        mc.testLayoutDirection = paymentSheetTestLayoutDirection(for: settings.layoutDirection)
         self.paymentSheet = mc
     }
 
@@ -997,6 +1011,9 @@ extension PlaygroundController {
                         case .failure(let error):
                             print(error as Any)
                         case .success(let manualFlow):
+                            manualFlow.testLayoutDirection = self.paymentSheetTestLayoutDirection(
+                                for: settingsToLoad.layoutDirection
+                            )
                             self.paymentSheetFlowController = manualFlow
                         }
                         // If the completed load state doesn't represent the current state, reload again

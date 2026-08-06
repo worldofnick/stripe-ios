@@ -156,6 +156,10 @@ extension PaymentSheet {
     /// A class that presents the individual steps of a payment flow
     public class FlowController: ObservableObject {
         // MARK: - Public properties
+
+        /// A test-only layout direction applied to FlowController's presentation roots.
+        @_spi(STP) public var testLayoutDirection: UIUserInterfaceLayoutDirection?
+
         /// Contains details about a payment method that can be displayed to the customer
         public struct PaymentOptionDisplayData {
             /// An image representing a payment method; e.g. the Apple Pay logo or a VISA logo
@@ -569,6 +573,7 @@ extension PaymentSheet {
                 guard let self = self else { return }
 
                 // Set the PaymentSheetViewController as the content of our bottom sheet
+                self.applyTestLayoutDirection(to: self.viewController)
                 let bottomSheetVC = Self.makeBottomSheetViewController(
                     self.viewController,
                     configuration: self.configuration,
@@ -607,6 +612,7 @@ extension PaymentSheet {
                 appearance: configuration.appearance,
                 isTestMode: configuration.apiClient.isTestmode
             )
+            applyTestLayoutDirection(to: loadingVC)
             let bottomSheetVC = Self.makeBottomSheetViewController(
                 loadingVC,
                 configuration: configuration,
@@ -641,10 +647,20 @@ extension PaymentSheet {
                         }
                     } else {
                         self.viewController.flowControllerDelegate = self
+                        self.applyTestLayoutDirection(to: self.viewController)
                         bottomSheetVC.setViewControllers([self.viewController])
                     }
                 }
             }
+        }
+
+        private func applyTestLayoutDirection(to viewController: BottomSheetContentViewController) {
+            guard let testLayoutDirection else { return }
+            let semanticContentAttribute: UISemanticContentAttribute = testLayoutDirection == .rightToLeft
+                ? .forceRightToLeft
+                : .forceLeftToRight
+            viewController.view.semanticContentAttribute = semanticContentAttribute
+            viewController.navigationBar.semanticContentAttribute = semanticContentAttribute
         }
 
         private func presentNativeLinkInPlaceOfFlowController(

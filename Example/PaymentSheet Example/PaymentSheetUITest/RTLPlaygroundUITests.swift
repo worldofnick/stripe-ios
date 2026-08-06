@@ -37,6 +37,30 @@ final class RTLPlaygroundUITests: PaymentSheetUITestCase {
         assertPlaygroundHeaderIsRightToLeft()
     }
 
+    func testLayoutDirectionControlAppliesToNewlyPresentedPaymentSheets() {
+        var settings = PaymentSheetTestPlaygroundSettings.defaultValues()
+        settings.autoreload = .off
+
+        loadPlayground(app, settings)
+
+        assertNewlyPresentedPaymentSheetIsLeftToRight()
+
+        app.buttons["RTL"].tap()
+        assertPlaygroundHeaderIsRightToLeft()
+        waitForPaymentSheetToReload()
+        assertNewlyPresentedPaymentSheetIsRightToLeft()
+
+        app.buttons["LTR"].tap()
+        assertPlaygroundHeaderIsLeftToRight()
+        waitForPaymentSheetToReload()
+        assertNewlyPresentedPaymentSheetIsLeftToRight()
+
+        app.buttons["System"].tap()
+        assertPlaygroundHeaderIsLeftToRight()
+        waitForPaymentSheetToReload()
+        assertNewlyPresentedPaymentSheetIsLeftToRight()
+    }
+
     func testLegacySettingsWithoutLayoutDirectionResolveToSystem() throws {
         let encodedSettings = try JSONEncoder().encode(PaymentSheetTestPlaygroundSettings.defaultValues())
         var legacySettings = try XCTUnwrap(
@@ -109,5 +133,40 @@ final class RTLPlaygroundUITests: PaymentSheetUITestCase {
     private func assertPlaygroundHeaderIsRightToLeft() {
         let (resetButton, qrButton) = playgroundHeaderButtons()
         XCTAssertGreaterThan(resetButton.frame.midX, qrButton.frame.midX)
+    }
+
+    private func assertNewlyPresentedPaymentSheetIsLeftToRight() {
+        let (closeButton, windowMidX) = presentPaymentSheet()
+        XCTAssertGreaterThan(closeButton.frame.midX, windowMidX)
+        dismissPaymentSheet(closeButton)
+    }
+
+    private func assertNewlyPresentedPaymentSheetIsRightToLeft() {
+        let (closeButton, windowMidX) = presentPaymentSheet()
+        XCTAssertLessThan(closeButton.frame.midX, windowMidX)
+        dismissPaymentSheet(closeButton)
+    }
+
+    private func presentPaymentSheet() -> (closeButton: XCUIElement, windowMidX: CGFloat) {
+        XCTAssertTrue(app.buttons["Present PaymentSheet"].waitForExistenceAndTap(timeout: 10))
+        let closeButton = app.buttons["UIButton.Close"]
+        XCTAssertTrue(closeButton.waitForExistence(timeout: 10))
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.exists)
+        return (closeButton, window.frame.midX)
+    }
+
+    private func dismissPaymentSheet(_ closeButton: XCUIElement) {
+        closeButton.tap()
+        XCTAssertTrue(closeButton.waitForNonExistence(timeout: 5))
+    }
+
+    private func waitForPaymentSheetToReload() {
+        let staleBadge = app.staticTexts["Stale"]
+        XCTAssertTrue(staleBadge.waitForExistence(timeout: 5))
+        let reloadButton = app.buttons["Reload"]
+        XCTAssertTrue(reloadButton.waitForExistenceAndTap(timeout: 5))
+        XCTAssertTrue(staleBadge.waitForNonExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Present PaymentSheet"].exists)
     }
 }

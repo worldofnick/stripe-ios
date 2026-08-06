@@ -50,6 +50,29 @@ final class RTLTestInfrastructureTests: XCTestCase {
         XCTAssertEqual(descendantOfExplicitView.semanticContentAttribute, .unspecified)
     }
 
+    func testUIKitRootOverrideReversesHelperOwnedDescendantsWithoutCrossingExplicitBoundary() {
+        let rootView = UIView()
+        let helperOwnedChildView = UIView()
+        let helperOwnedGrandchildView = UIView()
+        let explicitRightToLeftView = UIView()
+        let descendantOfExplicitView = UIView()
+        rootView.addSubview(helperOwnedChildView)
+        helperOwnedChildView.addSubview(helperOwnedGrandchildView)
+        rootView.addSubview(explicitRightToLeftView)
+        explicitRightToLeftView.addSubview(descendantOfExplicitView)
+        explicitRightToLeftView.semanticContentAttribute = .forceRightToLeft
+
+        rootView.setTestLayoutDirection(.rightToLeft)
+        rootView.setTestLayoutDirection(.leftToRight)
+
+        XCTAssertEqual(rootView.effectiveUserInterfaceLayoutDirection, .leftToRight)
+        XCTAssertEqual(helperOwnedChildView.effectiveUserInterfaceLayoutDirection, .leftToRight)
+        XCTAssertEqual(helperOwnedGrandchildView.effectiveUserInterfaceLayoutDirection, .leftToRight)
+        XCTAssertEqual(explicitRightToLeftView.semanticContentAttribute, .forceRightToLeft)
+        XCTAssertEqual(explicitRightToLeftView.effectiveUserInterfaceLayoutDirection, .rightToLeft)
+        XCTAssertEqual(descendantOfExplicitView.semanticContentAttribute, .unspecified)
+    }
+
     func testUIKitRootOverrideOnlyAppliesToCurrentSubviewTree() {
         let rootView = UIView()
 
