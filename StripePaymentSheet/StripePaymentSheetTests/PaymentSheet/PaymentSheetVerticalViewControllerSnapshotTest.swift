@@ -30,8 +30,16 @@ final class PaymentSheetVerticalViewControllerSnapshotTest: STPSnapshotTestCase 
         return bottomSheet
     }
 
-    func verify(_ sut: PaymentSheetVerticalViewController, identifier: String? = nil) {
+    func verify(
+        _ sut: PaymentSheetVerticalViewController,
+        identifier: String? = nil,
+        rightToLeft: Bool = false
+    ) {
         let bottomSheet = makeBottomSheetAndLayout(sut)
+        if rightToLeft {
+            bottomSheet.view.forceRightToLeftLayout()
+            bottomSheet.view.layoutIfNeeded()
+        }
         STPSnapshotVerifyView(bottomSheet.view, identifier: identifier)
     }
 
@@ -340,6 +348,50 @@ final class PaymentSheetVerticalViewControllerSnapshotTest: STPSnapshotTestCase 
         sut.didTapPaymentMethod(.new(paymentMethodType: .stripe(.USBankAccount)))
         sut.updateErrorLabel(for: MockError())
         verify(sut, identifier: "under_form")
+    }
+
+    func testDisplaysErrorMandateAndUnusualPaymentMethodsRightToLeft() {
+        struct MockError: LocalizedError {
+            var errorDescription: String? {
+                "Mock error description"
+            }
+        }
+        let loadResult = PaymentSheetLoader.LoadResult(
+            intent: ._testDeferredIntent(
+                paymentMethodTypes: [.USBankAccount, .cashApp, .SEPADebit],
+                setupFutureUsage: .offSession
+            ),
+            elementsSession: ._testValue(
+                paymentMethodTypes: ["us_bank_account", "cashapp", "sepa_debit"],
+                isLinkPassthroughModeEnabled: false
+            ),
+            savedPaymentMethods: [._testSEPA()],
+            paymentMethodTypes: [.stripe(.USBankAccount), .stripe(.cashApp), .stripe(.SEPADebit)],
+            paymentMethodMessagingPromotionsHelper: ._testValue(),
+            paymentMethodOrientation: .vertical
+        )
+        let sut = PaymentSheetVerticalViewController(
+            configuration: ._testValue_MostPermissive(isApplePayEnabled: false),
+            loadResult: loadResult,
+            isFlowController: true,
+            analyticsHelper: ._testValue(),
+            previousPaymentOption: nil
+        )
+
+        sut.updateErrorLabel(for: MockError())
+        verify(sut, identifier: "rtl_under_list", rightToLeft: true)
+
+        let listVC = sut.paymentMethodListViewController!
+        listVC.didTap(
+            rowButton: listVC.getRowButton(accessibilityIdentifier: "Cash App Pay"),
+            selection: .new(paymentMethodType: .stripe(.cashApp))
+        )
+        sut.updateErrorLabel(for: MockError())
+        verify(sut, identifier: "rtl_under_list_with_mandate", rightToLeft: true)
+
+        sut.didTapPaymentMethod(.new(paymentMethodType: .stripe(.USBankAccount)))
+        sut.updateErrorLabel(for: MockError())
+        verify(sut, identifier: "rtl_under_form", rightToLeft: true)
     }
 
     func testAddNewCardFormTitle() {
