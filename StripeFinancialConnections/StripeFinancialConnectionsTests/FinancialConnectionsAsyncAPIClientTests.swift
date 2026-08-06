@@ -261,6 +261,45 @@ class FinancialConnectionsAsyncAPIClientTests: XCTestCase {
         XCTAssertEqual(callCount, 1)
     }
 
+    func testSynchronizeSendsArabicLocaleToHostedAuthBackend() async throws {
+        // Given
+        var requestBody: String?
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let stpAPIClient = STPAPIClient(publishableKey: "pk_test_123")
+        stpAPIClient.urlSession = URLSession(configuration: configuration)
+        let apiClient = FinancialConnectionsAsyncAPIClient(
+            apiClient: stpAPIClient,
+            locale: Locale(identifier: "ar")
+        )
+
+        MockURLProtocol.requestHandler = { request in
+            guard let url = request.url else {
+                throw TestError.sampleError
+            }
+            requestBody = self.bodyString(from: request)
+            let response = HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (response, try FinancialConnectionsSynchronizeMock.synchronize.data())
+        }
+        defer {
+            MockURLProtocol.requestHandler = nil
+        }
+
+        // When
+        _ = try await apiClient.synchronize(
+            clientSecret: "fcsess_client_secret_123",
+            returnURL: nil
+        )
+
+        // Then
+        XCTAssertTrue(requestBody?.split(separator: "&").contains("locale=ar") == true)
+    }
+
     func testSaveAccountsToNetworkAndLink_pollAccountNumbersUsesClientSecretParameter() async throws {
         var pollRequestQuery: String?
         let configuration = URLSessionConfiguration.ephemeral
@@ -323,6 +362,30 @@ class FinancialConnectionsAsyncAPIClientTests: XCTestCase {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return try decoder.decode(FinancialConnectionsPartnerAccount.self, from: data)
+    }
+
+    private func bodyString(from request: URLRequest) -> String? {
+        if let body = request.httpBody {
+            return String(data: body, encoding: .utf8)
+        }
+        guard let stream = request.httpBodyStream else {
+            return nil
+        }
+
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        let bufferSize = 1_024
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+        while stream.hasBytesAvailable {
+            let count = stream.read(buffer, maxLength: bufferSize)
+            guard count > 0 else {
+                break
+            }
+            data.append(buffer, count: count)
+        }
+        return String(data: data, encoding: .utf8)
     }
 
     private func makeMinimalManifestResponse() -> [String: Any] {
