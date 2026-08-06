@@ -54,9 +54,10 @@ class StubCustomerAdapter: CustomerAdapter {
 class CustomerSheetSnapshotTests: STPSnapshotTestCase {
 
     private var cs: CustomerSheet!
+    private var testWindow: UIWindow?
 
-    private var window: UIWindow {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 428, height: 1026))
+    private func makeWindow(size: CGSize = CGSize(width: 428, height: 1026)) -> UIWindow {
+        let window = UIWindow(frame: CGRect(origin: .zero, size: size))
         window.isHidden = false
         return window
     }
@@ -64,6 +65,7 @@ class CustomerSheetSnapshotTests: STPSnapshotTestCase {
     public override func tearDown() {
         super.tearDown()
         HTTPStubs.removeAllStubs()
+        testWindow = nil
     }
 
     private func stubbedAPIClient() -> STPAPIClient {
@@ -75,6 +77,56 @@ class CustomerSheetSnapshotTests: STPSnapshotTestCase {
         prepareCS(configuration: configuration())
         presentCS(darkMode: false)
         verify(cs.bottomSheetViewController.view!)
+    }
+
+    func testRightToLeft() {
+        stubSessions(paymentMethods: "\"card\"")
+        prepareCS(configuration: configuration())
+        presentCS(darkMode: false)
+        let view = cs.bottomSheetViewController.view!
+        view.forceRightToLeftLayout()
+        view.layoutIfNeeded()
+        XCTAssertEqual(view.effectiveUserInterfaceLayoutDirection, .rightToLeft)
+        verify(view)
+    }
+
+    func testRightToLeftLandscape() {
+        stubSessions(paymentMethods: "\"card\"")
+        prepareCS(configuration: configuration())
+        presentCS(
+            darkMode: false,
+            windowSize: CGSize(width: 844, height: 390),
+            additionalTraits: [
+                UITraitCollection(horizontalSizeClass: .compact),
+                UITraitCollection(verticalSizeClass: .compact),
+            ]
+        )
+        let view = cs.bottomSheetViewController.view!
+        view.forceRightToLeftLayout()
+        view.layoutIfNeeded()
+        XCTAssertEqual(view.window?.bounds.size, CGSize(width: 844, height: 390))
+        XCTAssertEqual(view.traitCollection.verticalSizeClass, .compact)
+        verify(view)
+    }
+
+    func testRightToLeftIPad() {
+        stubSessions(paymentMethods: "\"card\"")
+        prepareCS(configuration: configuration())
+        presentCS(
+            darkMode: false,
+            windowSize: CGSize(width: 1024, height: 1366),
+            additionalTraits: [
+                UITraitCollection(userInterfaceIdiom: .pad),
+                UITraitCollection(horizontalSizeClass: .regular),
+                UITraitCollection(verticalSizeClass: .regular),
+            ]
+        )
+        let view = cs.bottomSheetViewController.view!
+        view.forceRightToLeftLayout()
+        view.layoutIfNeeded()
+        XCTAssertEqual(view.window?.bounds.size, CGSize(width: 1024, height: 1366))
+        XCTAssertEqual(view.traitCollection.userInterfaceIdiom, .pad)
+        verify(view)
     }
 
     func testNoSavedPMsDarkMode() {
@@ -486,6 +538,28 @@ class CustomerSheetSnapshotTests: STPSnapshotTestCase {
         verify(cs.bottomSheetViewController.view!)
     }
 
+    func testOneSavedCardPMRightToLeft() {
+        stubSessions(paymentMethods: "\"card\"")
+        let customerAdapter = StubCustomerAdapter()
+        customerAdapter.paymentMethods = [stubbedPaymentMethod()]
+        prepareCS(configuration: configuration(applePayEnabled: true), customerAdapter: customerAdapter)
+        presentCS(darkMode: false)
+        let view = cs.bottomSheetViewController.view!
+        view.forceRightToLeftLayout()
+        view.layoutIfNeeded()
+        verify(view)
+    }
+
+    func testRightToLeftDynamicType() {
+        stubSessions(paymentMethods: "\"card\"")
+        prepareCS(configuration: configuration())
+        presentCS(darkMode: false, preferredContentSizeCategory: .accessibilityExtraExtraLarge)
+        let view = cs.bottomSheetViewController.view!
+        view.forceRightToLeftLayout()
+        view.layoutIfNeeded()
+        verify(view)
+    }
+
     func testOneSavedCardPMDarkMode() {
         stubSessions(paymentMethods: "\"card\"")
         let customerAdapter = StubCustomerAdapter()
@@ -594,10 +668,16 @@ class CustomerSheetSnapshotTests: STPSnapshotTestCase {
         self.cs = CustomerSheet(configuration: configuration, customer: customerAdapter)
     }
 
-    private func presentCS(darkMode: Bool, preferredContentSizeCategory: UIContentSizeCategory = .large) {
+    private func presentCS(
+        darkMode: Bool,
+        preferredContentSizeCategory: UIContentSizeCategory = .large,
+        windowSize: CGSize = CGSize(width: 428, height: 1026),
+        additionalTraits: [UITraitCollection] = []
+    ) {
         let vc = UIViewController()
         let navController = UINavigationController(rootViewController: vc)
-        let testWindow = self.window
+        let testWindow = makeWindow(size: windowSize)
+        self.testWindow = testWindow
         if darkMode {
             testWindow.overrideUserInterfaceStyle = .dark
         }
@@ -626,7 +706,9 @@ class CustomerSheetSnapshotTests: STPSnapshotTestCase {
         wait(for: [loadFinishedExpectation], timeout: 5)
 
         cs.bottomSheetViewController.presentationController!.overrideTraitCollection = UITraitCollection(
-            preferredContentSizeCategory: preferredContentSizeCategory
+            traitsFrom: [
+                UITraitCollection(preferredContentSizeCategory: preferredContentSizeCategory),
+            ] + additionalTraits
         )
     }
 
