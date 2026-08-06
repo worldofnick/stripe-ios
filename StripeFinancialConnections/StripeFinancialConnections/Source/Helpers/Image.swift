@@ -32,6 +32,23 @@ enum Image: String, ImageMaker {
     case testmode
     case warning_triangle
     case bullet
+
+    func makeImage(
+        template: Bool = false,
+        overrideUserInterfaceStyle: UIUserInterfaceStyle? = nil
+    ) -> UIImage {
+        let image = Self.safeImageNamed(
+            rawValue,
+            templateIfAvailable: template,
+            overrideUserInterfaceStyle: overrideUserInterfaceStyle
+        )
+        switch self {
+        case .back_arrow, .panel_arrow_right:
+            return image.imageFlippedForRightToLeftLayoutDirection()
+        default:
+            return image
+        }
+    }
 }
 
 extension UIImage {

@@ -39,6 +39,7 @@ final class PhoneTextField: UIView {
                 bottom: 4,
                 trailing: 16
             )
+        textField.containerHorizontalStackView.semanticContentAttribute = .forceLeftToRight
         textField.delegate = self
         textField.textField.accessibilityIdentifier = "phone_text_field"
         return textField

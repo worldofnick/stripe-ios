@@ -154,6 +154,11 @@ final class RoundedTextField: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        textField.textAlignment = effectiveUserInterfaceLayoutDirection == .rightToLeft ? .right : .left
+    }
+
     override func becomeFirstResponder() -> Bool {
         return textField.becomeFirstResponder()
     }
