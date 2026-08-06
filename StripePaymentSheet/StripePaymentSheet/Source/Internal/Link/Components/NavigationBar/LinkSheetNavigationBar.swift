@@ -38,10 +38,8 @@ class LinkSheetNavigationBar: SheetNavigationBar {
         return label
     }()
 
-    // Store constraint references so they can be updated as the content changes
-    private var titleLeadingConstraint: NSLayoutConstraint?
     private var titleCenterXConstraint: NSLayoutConstraint?
-    private var titleTrailingConstraint: NSLayoutConstraint?
+    private var titleBoundaryConstraints: [NSLayoutConstraint] = []
 
     var title: String? {
         didSet {
@@ -70,29 +68,21 @@ class LinkSheetNavigationBar: SheetNavigationBar {
         addSubview(logoView)
 
         NSLayoutConstraint.activate([
-            logoView.leftAnchor.constraint(equalTo: leftAnchor, constant: LinkUI.contentMargins.leading),
+            logoView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: LinkUI.contentMargins.leading),
             logoView.centerYAnchor.constraint(equalTo: centerYAnchor),
             logoView.heightAnchor.constraint(equalToConstant: 24),
         ])
 
         addSubview(titleLabel)
 
-        titleCenterXConstraint = titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor)
-        titleLeadingConstraint = titleLabel.leadingAnchor.constraint(
-            greaterThanOrEqualTo: leftmostElement.trailingAnchor,
-            constant: LinkUI.contentSpacing
-        )
-        titleTrailingConstraint = titleLabel.trailingAnchor.constraint(
-            lessThanOrEqualTo: rightmostElement?.leadingAnchor ?? trailingAnchor,
-            constant: -LinkUI.contentSpacing
-        )
+        let titleCenterXConstraint = titleLabel.centerXAnchor.constraint(equalTo: centerXAnchor)
+        self.titleCenterXConstraint = titleCenterXConstraint
+        titleBoundaryConstraints = makeTitleBoundaryConstraints()
 
         NSLayoutConstraint.activate([
             titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
-            titleCenterXConstraint!,
-            titleLeadingConstraint!,
-            titleTrailingConstraint!,
-        ])
+            titleCenterXConstraint,
+        ] + titleBoundaryConstraints)
         titleLabel.isHidden = true
     }
 
@@ -182,26 +172,12 @@ class LinkSheetNavigationBar: SheetNavigationBar {
     }
 
     private func updateTitleConstraints() {
-        guard !titleLabel.isHidden,
-                let centerXConstraint = titleCenterXConstraint,
-              let trailingConstraint = titleTrailingConstraint,
-              let leadingConstraint = titleLeadingConstraint else { return }
+        guard let titleCenterXConstraint, !titleLabel.isHidden else { return }
 
-        // Update leading constraint to latest leftmostElement
-        leadingConstraint.isActive = false
-        titleLeadingConstraint = titleLabel.leadingAnchor.constraint(
-            greaterThanOrEqualTo: leftmostElement.trailingAnchor,
-            constant: LinkUI.contentSpacing
-        )
-        titleLeadingConstraint?.isActive = true
-
-        // Update trailing constraint to latest rightmostElement
-        trailingConstraint.isActive = false
-        titleTrailingConstraint = titleLabel.trailingAnchor.constraint(
-            lessThanOrEqualTo: rightmostElement?.leadingAnchor ?? trailingAnchor,
-            constant: -LinkUI.contentSpacing
-        )
-        titleTrailingConstraint?.isActive = true
+        // Update boundary constraints to the latest buttons and layout direction.
+        NSLayoutConstraint.deactivate(titleBoundaryConstraints)
+        titleBoundaryConstraints = makeTitleBoundaryConstraints()
+        NSLayoutConstraint.activate(titleBoundaryConstraints)
 
         // Check if title fits with center constraint, otherwise remove it to prevent layout conflicts.
         //
@@ -209,7 +185,7 @@ class LinkSheetNavigationBar: SheetNavigationBar {
         // [Button]        [Title]        [Button]
         //
         // When title is too long, centering would conflict with leading/trailing constraints,
-        // so we remove the center constraint and let it align left:
+        // so we remove the center constraint and let it align to the leading edge:
         // [Button] [ Very Long Title Message .. ]
 
         // This method is called initially the width of the view is 0.
@@ -228,20 +204,51 @@ class LinkSheetNavigationBar: SheetNavigationBar {
 
         if titleSize.width > availableWidth {
             // Title is too long - remove center constraint to prevent conflicts
-            centerXConstraint.isActive = false
-            titleLabel.textAlignment = .left
+            titleCenterXConstraint.isActive = false
+            titleLabel.textAlignment = .natural
         } else {
             // Title fits - keep it centered for better visual balance
-            centerXConstraint.isActive = true
+            titleCenterXConstraint.isActive = true
             titleLabel.textAlignment = .center
         }
     }
 
     private func calculateAvailableWidthForTitle() -> CGFloat {
+        if effectiveUserInterfaceLayoutDirection == .rightToLeft {
+            let leftBoundary = (rightmostElement?.frame.maxX ?? bounds.minX)
+                + (rightmostElement == nil ? 0 : LinkUI.contentSpacing)
+            let rightBoundary = leftmostElement.frame.minX - LinkUI.contentSpacing
+            return max(0, rightBoundary - leftBoundary)
+        }
+
         let leftBoundary = leftmostElement.frame.maxX + LinkUI.contentSpacing
         let rightBoundary = rightmostElement?.frame.minX ?? bounds.maxX
         let rightSpacing = rightmostElement != nil ? LinkUI.contentSpacing : 0
         return max(0, rightBoundary - leftBoundary - rightSpacing)
+    }
+
+    private func makeTitleBoundaryConstraints() -> [NSLayoutConstraint] {
+        if effectiveUserInterfaceLayoutDirection == .rightToLeft {
+            let rightBoundary = titleLabel.rightAnchor.constraint(
+                lessThanOrEqualTo: leftmostElement.leftAnchor,
+                constant: -LinkUI.contentSpacing
+            )
+            let leftBoundary = titleLabel.leftAnchor.constraint(
+                greaterThanOrEqualTo: rightmostElement?.rightAnchor ?? leftAnchor,
+                constant: rightmostElement == nil ? 0 : LinkUI.contentSpacing
+            )
+            return [rightBoundary, leftBoundary]
+        }
+
+        let leftBoundary = titleLabel.leftAnchor.constraint(
+            greaterThanOrEqualTo: leftmostElement.rightAnchor,
+            constant: LinkUI.contentSpacing
+        )
+        let rightBoundary = titleLabel.rightAnchor.constraint(
+            lessThanOrEqualTo: rightmostElement?.leftAnchor ?? rightAnchor,
+            constant: rightmostElement == nil ? 0 : -LinkUI.contentSpacing
+        )
+        return [leftBoundary, rightBoundary]
     }
 
     override func layoutSubviews() {

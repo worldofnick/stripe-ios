@@ -234,6 +234,8 @@ final class PayWithLinkButton: UIControl {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        // Align this short value with the interface without changing the email's LTR writing direction.
+        emailLabel.textAlignment = effectiveUserInterfaceLayoutDirection == .rightToLeft ? .right : .left
         applyCornerRadius()
     }
 
