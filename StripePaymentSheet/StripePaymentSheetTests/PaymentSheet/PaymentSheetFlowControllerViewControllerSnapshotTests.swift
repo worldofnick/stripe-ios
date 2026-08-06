@@ -26,16 +26,71 @@ final class PaymentSheetFlowControllerViewControllerSnapshotTests: STPSnapshotTe
     }
 
     func testSavedScreen_card() {
-        let paymentMethods = [
-            STPPaymentMethod._testCard(),
-        ]
-        let sut = PaymentSheetFlowControllerViewController(
-            configuration: ._testValue_MostPermissive(isApplePayEnabled: false),
-            loadResult: makeTestLoadResult(savedPaymentMethods: paymentMethods),
-            analyticsHelper: ._testValue()
-        )
+        let sut = makeSavedCardSUT()
         sut.view.autosizeHeight(width: 375)
         STPSnapshotVerifyView(sut.view)
+    }
+
+    func testSavedScreen_cardRightToLeft() {
+        let sut = makeSavedCardSUT()
+        sut.view.forceRightToLeftLayout()
+        sut.view.autosizeHeight(width: 375)
+        XCTAssertEqual(sut.view.effectiveUserInterfaceLayoutDirection, .rightToLeft)
+        STPSnapshotVerifyView(sut.view)
+    }
+
+    func testSavedScreen_cardRightToLeftDynamicType() {
+        let sut = makeSavedCardSUT()
+        let traitHost = overrideTraits(
+            UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraLarge),
+            for: sut
+        )
+        sut.view.forceRightToLeftLayout()
+        sut.view.autosizeHeight(width: 375)
+
+        XCTAssertEqual(sut.view.traitCollection.preferredContentSizeCategory, .accessibilityExtraExtraLarge)
+        withExtendedLifetime(traitHost) {
+            STPSnapshotVerifyView(sut.view)
+        }
+    }
+
+    func testSavedScreen_cardRightToLeftLandscape() {
+        let sut = makeSavedCardSUT()
+        let traitHost = overrideTraits(
+            UITraitCollection(traitsFrom: [
+                UITraitCollection(horizontalSizeClass: .compact),
+                UITraitCollection(verticalSizeClass: .compact),
+            ]),
+            for: sut
+        )
+        sut.view.forceRightToLeftLayout()
+        sut.view.autosizeHeight(width: 844)
+
+        XCTAssertEqual(sut.view.bounds.width, 844)
+        XCTAssertEqual(sut.view.traitCollection.verticalSizeClass, .compact)
+        withExtendedLifetime(traitHost) {
+            STPSnapshotVerifyView(sut.view)
+        }
+    }
+
+    func testSavedScreen_cardRightToLeftIPad() {
+        let sut = makeSavedCardSUT()
+        let traitHost = overrideTraits(
+            UITraitCollection(traitsFrom: [
+                UITraitCollection(userInterfaceIdiom: .pad),
+                UITraitCollection(horizontalSizeClass: .regular),
+                UITraitCollection(verticalSizeClass: .regular),
+            ]),
+            for: sut
+        )
+        sut.view.forceRightToLeftLayout()
+        sut.view.autosizeHeight(width: 1024)
+
+        XCTAssertEqual(sut.view.bounds.width, 1024)
+        XCTAssertEqual(sut.view.traitCollection.userInterfaceIdiom, .pad)
+        withExtendedLifetime(traitHost) {
+            STPSnapshotVerifyView(sut.view)
+        }
     }
 
     func testSavedScreen_us_bank_account() {
@@ -98,6 +153,23 @@ final class PaymentSheetFlowControllerViewControllerSnapshotTests: STPSnapshotTe
     }
 
     func testDirectToCardScan() {
+        let sut = makeDirectToCardScanSUT()
+        sut.view.autosizeHeight(width: 375)
+        STPSnapshotVerifyView(sut.view)
+    }
+
+    func testDirectToCardScanRightToLeft() throws {
+        let sut = makeDirectToCardScanSUT()
+        sut.view.forceRightToLeftLayout()
+        sut.view.autosizeHeight(width: 375)
+
+        let cardScanningView = try XCTUnwrap(findSubview(of: CardScanningView.self, in: sut.view))
+        let closeButton = try XCTUnwrap(findSubview(of: CircularButton.self, in: cardScanningView))
+        XCTAssertLessThan(closeButton.frame.midX, cardScanningView.bounds.midX)
+        STPSnapshotVerifyView(sut.view)
+    }
+
+    private func makeDirectToCardScanSUT() -> PaymentSheetFlowControllerViewController {
         let expectation = expectation(description: "Load address specs")
         AddressSpecProvider.shared.loadAddressSpecs {
             expectation.fulfill()
@@ -126,7 +198,32 @@ final class PaymentSheetFlowControllerViewControllerSnapshotTests: STPSnapshotTe
             loadResult: loadResult,
             analyticsHelper: ._testValue()
         )
-        sut.view.autosizeHeight(width: 375)
-        STPSnapshotVerifyView(sut.view)
+        return sut
+    }
+
+    private func makeSavedCardSUT() -> PaymentSheetFlowControllerViewController {
+        return PaymentSheetFlowControllerViewController(
+            configuration: ._testValue_MostPermissive(isApplePayEnabled: false),
+            loadResult: makeTestLoadResult(savedPaymentMethods: [STPPaymentMethod._testCard()]),
+            analyticsHelper: ._testValue()
+        )
+    }
+
+    private func overrideTraits(
+        _ traits: UITraitCollection,
+        for sut: UIViewController
+    ) -> UIViewController {
+        let host = UIViewController()
+        host.addChild(sut)
+        host.setOverrideTraitCollection(traits, forChild: sut)
+        sut.didMove(toParent: host)
+        return host
+    }
+
+    private func findSubview<T: UIView>(of type: T.Type, in view: UIView) -> T? {
+        if let match = view as? T {
+            return match
+        }
+        return view.subviews.lazy.compactMap { self.findSubview(of: type, in: $0) }.first
     }
 }
