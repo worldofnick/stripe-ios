@@ -8,6 +8,19 @@
 import UIKit
 
 extension UIView {
+    /// Forces a root view and its current unspecified descendants to use a layout direction in tests.
+    ///
+    /// Call this after constructing the view hierarchy. Views added later aren't updated, and explicit semantic
+    /// content attributes form boundaries that preserve their own subtree's layout direction.
+    public func setTestLayoutDirection(_ direction: StripeTestLayoutDirection) {
+        semanticContentAttribute = direction.semanticContentAttribute
+        subviews
+            .filter { $0.semanticContentAttribute == .unspecified }
+            .forEach { $0.setTestLayoutDirection(direction) }
+        setNeedsLayout()
+        layoutIfNeeded()
+    }
+
     /// Constrains the view to the given width and autosizes its height.
     ///
     /// - Parameter width: Resizes the view to this width
