@@ -148,6 +148,111 @@ final class RightToLeftLayoutTests: XCTestCase {
         XCTAssertEqual(numberStack.semanticContentAttribute, .forceLeftToRight)
         XCTAssertEqual(numberStack.effectiveUserInterfaceLayoutDirection, .leftToRight)
     }
+
+    func testRoundedTextFieldExpandsForAccessibilityDynamicType() {
+        // Given
+        let traits = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraLarge)
+        var roundedTextField: RoundedTextField!
+        traits.performAsCurrent {
+            roundedTextField = RoundedTextField(
+                placeholder: "Account holder name",
+                appearance: .stripe
+            )
+            roundedTextField.text = "Nick Porter"
+        }
+
+        // When
+        let window = host(
+            roundedTextField,
+            size: CGSize(width: 390, height: 844),
+            traits: traits
+        )
+
+        // Then
+        XCTAssertNotNil(window.rootViewController)
+        XCTAssertGreaterThanOrEqual(
+            roundedTextField.textField.bounds.height,
+            roundedTextField.textField.font?.lineHeight ?? 0
+        )
+    }
+
+    func testPhoneCountryCodeDoesNotWrapAtAccessibilityDynamicType() throws {
+        // Given
+        let traits = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraLarge)
+        var phoneTextField: PhoneTextField!
+        traits.performAsCurrent {
+            phoneTextField = PhoneTextField(
+                defaultPhoneNumber: "+14155552671",
+                appearance: .stripe
+            )
+        }
+
+        // When
+        let window = host(
+            phoneTextField,
+            size: CGSize(width: 390, height: 844),
+            traits: traits
+        )
+
+        // Then
+        XCTAssertNotNil(window.rootViewController)
+        let countryCodeLabel = try XCTUnwrap(
+            phoneTextField.allSubviews(of: AttributedLabel.self).first {
+                $0.attributedText?.string == "+1"
+            }
+        )
+        XCTAssertEqual(countryCodeLabel.numberOfLines, 1)
+        XCTAssertEqual(
+            countryCodeLabel.contentCompressionResistancePriority(for: .horizontal),
+            .required
+        )
+    }
+
+    func testCloseConfirmationVoiceOverOrderRemainsLogicalInRightToLeftLayout() throws {
+        // Given
+        let viewController = CloseConfirmationViewController(
+            appearance: .stripe,
+            didSelectClose: {}
+        )
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+        let animationsWereEnabled = UIView.areAnimationsEnabled
+        UIView.setAnimationsEnabled(false)
+        defer {
+            UIView.setAnimationsEnabled(animationsWereEnabled)
+            window.isHidden = true
+        }
+        window.rootViewController = viewController
+        window.isHidden = false
+
+        // When
+        viewController.view.forceRightToLeftLayout()
+        window.layoutIfNeeded()
+
+        // Then
+        let title = try XCTUnwrap(
+            viewController.view.allSubviews(of: UITextView.self).first {
+                $0.accessibilityLabel == "Exit without connecting?"
+            }
+        )
+        let cancelButton = try XCTUnwrap(
+            viewController.view.allSubviews(of: UIControl.self).first {
+                $0.accessibilityLabel == "Cancel"
+            }
+        )
+        let exitButton = try XCTUnwrap(
+            viewController.view.allSubviews(of: UIControl.self).first {
+                $0.accessibilityLabel == "Yes, exit"
+            }
+        )
+        XCTAssertTrue(cancelButton.isAccessibilityElement)
+        XCTAssertTrue(exitButton.isAccessibilityElement)
+
+        let titleFrame = title.convert(title.bounds, to: viewController.view)
+        let cancelFrame = cancelButton.convert(cancelButton.bounds, to: viewController.view)
+        let exitFrame = exitButton.convert(exitButton.bounds, to: viewController.view)
+        XCTAssertLessThan(titleFrame.minY, cancelFrame.minY)
+        XCTAssertLessThan(cancelFrame.minY, exitFrame.minY)
+    }
 }
 
 private extension UIView {
@@ -171,4 +276,40 @@ private extension NSAttributedString {
         }
         return (attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle)?.alignment
     }
+}
+
+private func host(
+    _ view: UIView,
+    size: CGSize,
+    traits: UITraitCollection
+) -> UIWindow {
+    let rootViewController = UIViewController()
+    let contentViewController = UIViewController()
+    rootViewController.addChild(contentViewController)
+    rootViewController.setOverrideTraitCollection(traits, forChild: contentViewController)
+
+    let window = UIWindow(frame: CGRect(origin: .zero, size: size))
+    window.rootViewController = rootViewController
+    window.isHidden = false
+
+    contentViewController.view.translatesAutoresizingMaskIntoConstraints = false
+    rootViewController.view.addSubview(contentViewController.view)
+    NSLayoutConstraint.activate([
+        contentViewController.view.topAnchor.constraint(equalTo: rootViewController.view.topAnchor),
+        contentViewController.view.leadingAnchor.constraint(equalTo: rootViewController.view.leadingAnchor),
+        contentViewController.view.bottomAnchor.constraint(equalTo: rootViewController.view.bottomAnchor),
+        contentViewController.view.trailingAnchor.constraint(equalTo: rootViewController.view.trailingAnchor),
+    ])
+    contentViewController.didMove(toParent: rootViewController)
+
+    view.translatesAutoresizingMaskIntoConstraints = false
+    contentViewController.view.addSubview(view)
+    NSLayoutConstraint.activate([
+        view.topAnchor.constraint(equalTo: contentViewController.view.topAnchor),
+        view.leadingAnchor.constraint(equalTo: contentViewController.view.leadingAnchor, constant: 24),
+        view.trailingAnchor.constraint(equalTo: contentViewController.view.trailingAnchor, constant: -24),
+    ])
+    contentViewController.view.forceRightToLeftLayout()
+    window.layoutIfNeeded()
+    return window
 }

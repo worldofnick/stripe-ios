@@ -23,6 +23,8 @@ final class PhoneCountryCodeSelectorView: UIView {
             font: .label(.large),
             textColor: FinancialConnectionsAppearance.Colors.textDefault
         )
+        flagLabel.numberOfLines = 1
+        flagLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         return flagLabel
     }()
     private lazy var countryCodeLabel: AttributedLabel = {
@@ -30,6 +32,8 @@ final class PhoneCountryCodeSelectorView: UIView {
             font: .label(.large),
             textColor: FinancialConnectionsAppearance.Colors.textDefault
         )
+        flagLabel.numberOfLines = 1
+        flagLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         return flagLabel
     }()
     // to show the `pickerView` as a keyboard, we need an
