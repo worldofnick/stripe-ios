@@ -44,6 +44,7 @@ struct PaymentSheetTestPlayground: View {
             disabledSettings: playgroundController.settings.integrationType == .checkoutSession ? [.paymentSheet] : [],
             searchText: searchText
         )
+        SearchableSettingView(setting: layoutDirectionBinding, searchText: searchText)
         if playgroundController.settings.uiStyle != .embedded {
             SearchableSettingView(setting: $playgroundController.settings.layout, searchText: searchText)
         }
@@ -453,6 +454,14 @@ struct PaymentSheetTestPlayground: View {
             }
 
             playgroundController.settings.uiStyle = newUIStyle
+        }
+    }
+
+    var layoutDirectionBinding: Binding<PaymentSheetTestPlaygroundSettings.LayoutDirection> {
+        Binding<PaymentSheetTestPlaygroundSettings.LayoutDirection> {
+            playgroundController.settings.layoutDirection ?? .system
+        } set: { newDirection in
+            playgroundController.settings.layoutDirection = newDirection
         }
     }
 

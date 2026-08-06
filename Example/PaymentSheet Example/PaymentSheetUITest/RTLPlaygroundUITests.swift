@@ -1,6 +1,42 @@
 import XCTest
 
 final class RTLPlaygroundUITests: PaymentSheetUITestCase {
+    func testLayoutDirectionControlIsAvailable() {
+        let settings = PaymentSheetTestPlaygroundSettings.defaultValues()
+
+        loadPlayground(app, settings)
+
+        XCTAssertTrue(app.staticTexts["Layout Direction"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["System"].exists)
+        XCTAssertTrue(app.buttons["LTR"].exists)
+        XCTAssertTrue(app.buttons["RTL"].exists)
+    }
+
+    func testLayoutDirectionControlReordersPlaygroundHeader() {
+        let settings = PaymentSheetTestPlaygroundSettings.defaultValues()
+        configureRightToLeftHost()
+
+        loadPlayground(app, settings)
+
+        let systemButton = app.buttons["System"]
+        let leftToRightButton = app.buttons["LTR"]
+        let rightToLeftButton = app.buttons["RTL"]
+        XCTAssertTrue(systemButton.waitForExistence(timeout: 5))
+        XCTAssertTrue(leftToRightButton.exists)
+        XCTAssertTrue(rightToLeftButton.exists)
+
+        assertPlaygroundHeaderIsRightToLeft()
+
+        leftToRightButton.tap()
+        assertPlaygroundHeaderIsLeftToRight()
+
+        rightToLeftButton.tap()
+        assertPlaygroundHeaderIsRightToLeft()
+
+        systemButton.tap()
+        assertPlaygroundHeaderIsRightToLeft()
+    }
+
     func testLegacySettingsWithoutLayoutDirectionResolveToSystem() throws {
         let encodedSettings = try JSONEncoder().encode(PaymentSheetTestPlaygroundSettings.defaultValues())
         var legacySettings = try XCTUnwrap(
@@ -63,5 +99,15 @@ final class RTLPlaygroundUITests: PaymentSheetUITestCase {
         XCTAssertTrue(resetButton.waitForExistence(timeout: 5))
         XCTAssertTrue(qrButton.waitForExistence(timeout: 5))
         return (resetButton, qrButton)
+    }
+
+    private func assertPlaygroundHeaderIsLeftToRight() {
+        let (resetButton, qrButton) = playgroundHeaderButtons()
+        XCTAssertLessThan(resetButton.frame.midX, qrButton.frame.midX)
+    }
+
+    private func assertPlaygroundHeaderIsRightToLeft() {
+        let (resetButton, qrButton) = playgroundHeaderButtons()
+        XCTAssertGreaterThan(resetButton.frame.midX, qrButton.frame.midX)
     }
 }
