@@ -41,11 +41,16 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func launchWith(base64String: String, windowScene: UIWindowScene) {
-        let settings = PaymentSheetTestPlaygroundSettings.fromBase64(base64: base64String, className: PaymentSheetTestPlaygroundSettings.self)!
+        let settings = PaymentSheetTestPlaygroundSettings.fromBase64(
+            base64: base64String,
+            className: PaymentSheetTestPlaygroundSettings.self
+        )!
         let paymentSheetPlayground = PaymentSheetTestPlayground(settings: settings, appearance: .default)
         let hvc = UIHostingController(rootView: paymentSheetPlayground)
         let navController = UINavigationController(rootViewController: hvc)
-        windowScene.windows.first!.rootViewController = navController
+        let window = windowScene.windows.first!
+        PlaygroundLayoutDirection.apply(settings.layoutDirection, to: window)
+        window.rootViewController = navController
     }
 
     func launchCustomerSheetWith(base64String: String, windowScene: UIWindowScene) {

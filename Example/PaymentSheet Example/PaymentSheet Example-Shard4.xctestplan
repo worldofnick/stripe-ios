@@ -52,7 +52,8 @@
         "PaymentSheetLinkUITests",
         "PaymentSheetStandardUITests",
         "PaymentSheetVerticalUITests",
-        "PaymentSheet_AddressTests"
+        "PaymentSheet_AddressTests",
+        "RTLPlaygroundUITests"
       ],
       "target" : {
         "containerPath" : "container:PaymentSheet Example.xcodeproj",

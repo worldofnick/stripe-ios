@@ -665,6 +665,8 @@ import UIKit
                 return
             }
 
+            self?.applyLayoutDirection(newValue.layoutDirection)
+
             if newValue.autoreload == .on {
                 // This closure is called *before* `settings` is updated! Wait until the next run loop before calling `load`
                 DispatchQueue.main.async {
@@ -704,6 +706,18 @@ import UIKit
     private func updateForcedConsumerLinkBrand(_ settings: PaymentSheetTestPlaygroundSettings) {
         PaymentSheetLinkAccount.forcedConsumerLinkBrandForTesting =
             settings.forceOnelinkConsumer == .on ? .onelink : nil
+    }
+
+    private func applyLayoutDirection(
+        _ layoutDirection: PaymentSheetTestPlaygroundSettings.LayoutDirection?
+    ) {
+        guard let window = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow) else {
+            return
+        }
+        PlaygroundLayoutDirection.apply(layoutDirection, to: window)
     }
 
     func buildPaymentSheet() {

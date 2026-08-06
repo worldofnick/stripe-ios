@@ -16,6 +16,18 @@ struct PaymentSheetTestPlayground: View {
     @State private var isViewReady = false
     @State private var searchText: String = ""
     @State private var visibleSettingsCount: Int = 0
+    @Environment(\.layoutDirection) private var systemLayoutDirection
+
+    private var playgroundLayoutDirection: LayoutDirection {
+        switch playgroundController.settings.resolvedLayoutDirection {
+        case .system:
+            return systemLayoutDirection
+        case .leftToRight:
+            return .leftToRight
+        case .rightToLeft:
+            return .rightToLeft
+        }
+    }
 
     init() {
         _playgroundController = StateObject(wrappedValue: PlaygroundController())
@@ -312,6 +324,7 @@ struct PaymentSheetTestPlayground: View {
             Divider()
             PaymentSheetButtons()
         }
+        .environment(\.layoutDirection, playgroundLayoutDirection)
         .environmentObject(playgroundController)
         .animationUnlessTesting())
     }

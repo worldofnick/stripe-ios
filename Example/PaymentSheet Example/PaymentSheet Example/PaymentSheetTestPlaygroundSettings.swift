@@ -18,6 +18,25 @@ struct PaymentSheetTestPlaygroundSettings: Codable, Equatable {
         case embedded
     }
 
+    enum LayoutDirection: String, PickerEnum {
+        static var enumName: String { "Layout Direction" }
+
+        case system
+        case leftToRight = "left_to_right"
+        case rightToLeft = "right_to_left"
+
+        var displayName: String {
+            switch self {
+            case .system:
+                return "System"
+            case .leftToRight:
+                return "LTR"
+            case .rightToLeft:
+                return "RTL"
+            }
+        }
+    }
+
     enum Mode: String, PickerEnum {
         static var enumName: String { "Mode" }
 
@@ -740,6 +759,10 @@ struct PaymentSheetTestPlaygroundSettings: Codable, Equatable {
     }
 
     var uiStyle: UIStyle
+    var layoutDirection: LayoutDirection?
+    var resolvedLayoutDirection: LayoutDirection {
+        layoutDirection ?? .system
+    }
     var layout: Layout
     var mode: Mode
     var style: ConfigurationStyle
@@ -820,6 +843,7 @@ struct PaymentSheetTestPlaygroundSettings: Codable, Equatable {
     static func defaultValues() -> PaymentSheetTestPlaygroundSettings {
         return PaymentSheetTestPlaygroundSettings(
             uiStyle: .paymentSheet,
+            layoutDirection: .system,
             layout: .automatic,
             mode: .payment,
             style: .automatic,
