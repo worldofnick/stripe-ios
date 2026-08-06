@@ -66,10 +66,15 @@ final class EmbeddedFormViewControllerSnapshotTests: STPSnapshotTestCase {
     func verify(
         _ sut: EmbeddedFormViewController,
         identifier: String? = nil,
+        rightToLeft: Bool = false,
         file: StaticString = #file,
         line: UInt = #line
     ) {
         let bottomSheet = makeBottomSheetAndLayout(sut)
+        if rightToLeft {
+            bottomSheet.view.forceRightToLeftLayout()
+            bottomSheet.view.layoutIfNeeded()
+        }
         STPSnapshotVerifyView(bottomSheet.view, identifier: identifier, file: file, line: line)
     }
 
@@ -177,6 +182,24 @@ final class EmbeddedFormViewControllerSnapshotTests: STPSnapshotTestCase {
         sut.updateMandate()
         sut.updateErrorLabel(for: MockError())
         verify(sut)
+    }
+
+    func testDisplaysErrorAndMandateRightToLeft() {
+        struct MockError: LocalizedError {
+            var errorDescription: String? {
+                return "Mock error description"
+            }
+        }
+        var configuration = EmbeddedPaymentElement.Configuration()
+        configuration.formSheetAction = .confirm(completion: { _ in })
+        let sut = makeEmbeddedFormViewController(
+            configuration: configuration,
+            paymentMethodType: .SEPADebit
+        )
+
+        sut.updateMandate()
+        sut.updateErrorLabel(for: MockError())
+        verify(sut, rightToLeft: true)
     }
 }
 

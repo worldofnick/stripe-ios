@@ -861,6 +861,44 @@ class EmbeddedPaymentMethodsViewSnapshotTests: STPSnapshotTestCase {
         verify(embeddedView)
     }
 
+    func testEmbeddedPaymentMethodsView_flatWithDisclosureRightToLeft() {
+        verifyRightToLeft(style: .flatWithDisclosure)
+    }
+
+    func testEmbeddedPaymentMethodsView_flatRadioRightToLeft() {
+        verifyRightToLeft(style: .flatWithRadio)
+    }
+
+    func testEmbeddedPaymentMethodsView_floatingRightToLeft() {
+        verifyRightToLeft(style: .floatingButton)
+    }
+
+    func testEmbeddedPaymentMethodsView_flatWithCheckmarkRightToLeft() {
+        verifyRightToLeft(style: .flatWithCheckmark)
+    }
+
+    private func verifyRightToLeft(
+        style: PaymentSheet.Appearance.EmbeddedPaymentElement.Row.Style,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        var appearance: PaymentSheet.Appearance = .default
+        appearance.embeddedPaymentElement.row.style = style
+
+        let embeddedView = EmbeddedPaymentMethodsView(initialSelection: nil,
+                                                      paymentMethodTypes: [.stripe(.card), .stripe(.cashApp)],
+                                                      savedPaymentMethod: nil,
+                                                      appearance: appearance,
+                                                      shouldShowApplePay: true,
+                                                      shouldShowLink: true,
+                                                      savedPaymentMethodAccessoryType: .none,
+                                                      mandateProvider: MockMandateProvider())
+        embeddedView.forceRightToLeftLayout()
+
+        XCTAssertEqual(embeddedView.effectiveUserInterfaceLayoutDirection, .rightToLeft)
+        verify(embeddedView, file: file, line: line)
+    }
+
     func testEmbeddedPaymentMethodsView_flatWithDisclosure_color() {
         var appearance: PaymentSheet.Appearance = .default
         appearance.embeddedPaymentElement.row.style = .flatWithDisclosure

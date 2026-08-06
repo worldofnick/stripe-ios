@@ -14,6 +14,8 @@ import StripeCoreTestUtils
 import XCTest
 
 class EmbeddedPaymentElementSnapshotTests: STPSnapshotTestCase, EmbeddedPaymentElementDelegate {
+    private var testWindows: [UIWindow] = []
+
     var delegateDidUpdateHeightCalled: Bool = false
     var delegateDidUpdatePaymentOptionCalled: Bool = false
     func embeddedPaymentElementDidUpdateHeight(embeddedPaymentElement: StripePaymentSheet.EmbeddedPaymentElement) {
@@ -66,6 +68,130 @@ class EmbeddedPaymentElementSnapshotTests: STPSnapshotTestCase, EmbeddedPaymentE
 
         XCTAssertEqual(sut.view.directionalLayoutMargins, .zero)
         XCTAssertFalse(sut.view.hasAmbiguousLayout)
+    }
+
+    func testRightToLeft() async throws {
+        let sut = try await EmbeddedPaymentElement.create(
+            intentConfiguration: setupIntentConfig,
+            configuration: configuration
+        )
+        sut.view.forceRightToLeftLayout()
+        sut.view.autosizeHeight(width: 300)
+
+        XCTAssertEqual(sut.view.effectiveUserInterfaceLayoutDirection, .rightToLeft)
+        XCTAssertEqual(sut.embeddedPaymentMethodsView.effectiveUserInterfaceLayoutDirection, .rightToLeft)
+        XCTAssertEqual(sut.embeddedPaymentMethodsView.stackView.effectiveUserInterfaceLayoutDirection, .rightToLeft)
+        let cardRow = try XCTUnwrap(
+            sut.embeddedPaymentMethodsView.rowButtons.first { $0.type == .new(paymentMethodType: .stripe(.card)) }
+        )
+        XCTAssertEqual(
+            cardRow.effectiveUserInterfaceLayoutDirection,
+            .rightToLeft
+        )
+        STPSnapshotVerifyView(sut.view)
+
+        let updateResult = await sut.update(intentConfiguration: paymentIntentConfig)
+        XCTAssertEqual(updateResult, .succeeded)
+        sut.view.forceRightToLeftLayout()
+        let updatedCardRow = try XCTUnwrap(
+            sut.embeddedPaymentMethodsView.rowButtons.first { $0.type == .new(paymentMethodType: .stripe(.card)) }
+        )
+        XCTAssertEqual(updatedCardRow.effectiveUserInterfaceLayoutDirection, .rightToLeft)
+    }
+
+    func testRightToLeftDynamicType() async throws {
+        let sut = try await EmbeddedPaymentElement.create(
+            intentConfiguration: setupIntentConfig,
+            configuration: configuration
+        )
+        sut.view.forceRightToLeftLayout()
+        let traitHost = host(
+            sut.view,
+            width: 300,
+            traits: UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraLarge)
+        )
+
+        XCTAssertEqual(
+            sut.embeddedPaymentMethodsView.traitCollection.preferredContentSizeCategory,
+            .accessibilityExtraExtraLarge
+        )
+        withExtendedLifetime(traitHost) {
+            STPSnapshotVerifyView(sut.view)
+        }
+    }
+
+    func testRightToLeftLandscape() async throws {
+        let sut = try await EmbeddedPaymentElement.create(
+            intentConfiguration: setupIntentConfig,
+            configuration: configuration
+        )
+        sut.view.forceRightToLeftLayout()
+        let traitHost = host(
+            sut.view,
+            width: 844,
+            traits: UITraitCollection(traitsFrom: [
+                UITraitCollection(horizontalSizeClass: .compact),
+                UITraitCollection(verticalSizeClass: .compact),
+            ])
+        )
+
+        XCTAssertEqual(sut.view.bounds.width, 844)
+        XCTAssertEqual(sut.embeddedPaymentMethodsView.traitCollection.verticalSizeClass, .compact)
+        withExtendedLifetime(traitHost) {
+            STPSnapshotVerifyView(sut.view)
+        }
+    }
+
+    func testRightToLeftIPad() async throws {
+        let sut = try await EmbeddedPaymentElement.create(
+            intentConfiguration: setupIntentConfig,
+            configuration: configuration
+        )
+        sut.view.forceRightToLeftLayout()
+        let traitHost = host(
+            sut.view,
+            width: 1024,
+            traits: UITraitCollection(traitsFrom: [
+                UITraitCollection(userInterfaceIdiom: .pad),
+                UITraitCollection(horizontalSizeClass: .regular),
+                UITraitCollection(verticalSizeClass: .regular),
+            ])
+        )
+
+        XCTAssertEqual(sut.view.bounds.width, 1024)
+        XCTAssertEqual(sut.embeddedPaymentMethodsView.traitCollection.userInterfaceIdiom, .pad)
+        withExtendedLifetime(traitHost) {
+            STPSnapshotVerifyView(sut.view)
+        }
+    }
+
+    private func host(
+        _ view: UIView,
+        width: CGFloat,
+        traits: UITraitCollection
+    ) -> UIViewController {
+        let host = UIViewController()
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: 1_000))
+        window.rootViewController = host
+        window.isHidden = false
+        testWindows.append(window)
+
+        let child = UIViewController()
+        child.view = view
+        host.addChild(child)
+        host.view.addSubview(view)
+        host.setOverrideTraitCollection(traits, forChild: child)
+        child.didMove(toParent: host)
+
+        view.translatesAutoresizingMaskIntoConstraints = true
+        let size = view.systemLayoutSizeFitting(
+            CGSize(width: width, height: UIView.noIntrinsicMetric),
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        )
+        view.frame = CGRect(origin: .zero, size: size)
+        view.layoutIfNeeded()
+        return host
     }
 
     // MARK: - 'Change >' button and sublabel (eg Visa 4242)
