@@ -119,8 +119,8 @@ class AutoCompleteViewController: UIViewController {
         let container = UIView()
         container.addSubview(imageView)
 
-        var constraints = [
-            imageView.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: tableView.layoutMargins.left + indendationWidth),
+        let constraints = [
+            imageView.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: tableView.directionalLayoutMargins.leading + indendationWidth),
             imageView.heightAnchor.constraint(equalToConstant: UIFont.preferredFont(forTextStyle: .footnote).lineHeight < 16 ? 16 : UIFont.preferredFont(forTextStyle: .footnote).lineHeight),
             imageView.widthAnchor.constraint(equalTo: imageView.heightAnchor, multiplier: image.size.width / image.size.height),
             imageView.topAnchor.constraint(equalTo: container.topAnchor, constant: tableView.layoutMargins.top < 10 ? 10 : tableView.layoutMargins.top),
@@ -417,6 +417,9 @@ extension AutoCompleteViewController: UITableViewDelegate, UITableViewDataSource
                                                                             textStyle: .footnote,
                                                                             appearance: configuration.appearance,
                                                                             isSubtitle: true)
+        let textAlignment: NSTextAlignment = tableView.effectiveUserInterfaceLayoutDirection == .rightToLeft ? .right : .left
+        cell.textLabel?.textAlignment = textAlignment
+        cell.detailTextLabel?.textAlignment = textAlignment
         cell.indentationWidth = indendationWidth // hardcoded value to align with searchbar textfield
 
         cell.contentView.directionalLayoutMargins = .insets(
