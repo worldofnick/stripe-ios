@@ -3,6 +3,7 @@
 //  StripePaymentSheetTests
 //
 
+import StripeCoreTestUtils
 @testable @_spi(STP) import StripePaymentSheet
 import XCTest
 
@@ -110,6 +111,36 @@ final class PayWithLinkButtonTests: XCTestCase {
         XCTAssertGreaterThan(logoView.bounds.width, PayWithLinkButton.Constants.logoSize.width)
     }
 
+    func testEmailAlignmentFollowsInterfaceDirectionWithoutChangingValue() throws {
+        // Given
+        let button = PayWithLinkButton(brand: .link)
+        button.linkAccount = LinkAccountStub(
+            email: "user@example.com",
+            redactedPhoneNumber: nil,
+            isRegistered: true,
+            sessionState: .verified,
+            consumerSessionClientSecret: nil
+        )
+        button.frame = CGRect(origin: .zero, size: CGSize(width: 240, height: 44))
+
+        // When
+        button.forceRightToLeftLayout()
+        button.layoutIfNeeded()
+
+        // Then
+        let emailLabel = try XCTUnwrap(findLabel(withText: "user@example.com", in: button))
+        XCTAssertEqual(emailLabel.textAlignment, .right)
+        XCTAssertEqual(emailLabel.text, "user@example.com")
+
+        // When
+        button.semanticContentAttribute = .forceLeftToRight
+        button.layoutIfNeeded()
+
+        // Then
+        XCTAssertEqual(emailLabel.textAlignment, .left)
+        XCTAssertEqual(emailLabel.text, "user@example.com")
+    }
+
     private func renderedPNGData(for image: UIImage) -> Data? {
         let renderer = UIGraphicsImageRenderer(size: image.size)
         return renderer.pngData { _ in
@@ -155,6 +186,20 @@ final class PayWithLinkButtonTests: XCTestCase {
 
         for subview in view.subviews where !subview.isHidden {
             if let label = findVisibleAttributedLabel(in: subview) {
+                return label
+            }
+        }
+
+        return nil
+    }
+
+    private func findLabel(withText text: String, in view: UIView) -> UILabel? {
+        if let label = view as? UILabel, label.text == text {
+            return label
+        }
+
+        for subview in view.subviews {
+            if let label = findLabel(withText: text, in: subview) {
                 return label
             }
         }
