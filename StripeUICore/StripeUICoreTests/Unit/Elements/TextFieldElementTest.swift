@@ -58,17 +58,22 @@ class TextFieldElementTest: XCTestCase {
         element.view.semanticContentAttribute = .forceRightToLeft
         element.view.setNeedsLayout()
         element.view.layoutIfNeeded()
+        element.textFieldView.textField.text = "Nick Porter"
+        element.textFieldView.textDidChange()
 
         // Then
+        XCTAssertEqual(element.view.effectiveUserInterfaceLayoutDirection, .rightToLeft)
         XCTAssertEqual(element.textFieldView.textField.textAlignment, .right)
-        XCTAssertEqual(element.textFieldView.text, "a@b.co")
+        XCTAssertEqual(element.textFieldView.text, "Nick Porter")
 
         // When
         element.view.semanticContentAttribute = .forceLeftToRight
         element.view.setNeedsLayout()
         element.view.layoutIfNeeded()
+        element.setText("a@b.co")
 
         // Then
+        XCTAssertEqual(element.view.effectiveUserInterfaceLayoutDirection, .leftToRight)
         XCTAssertEqual(element.textFieldView.textField.textAlignment, .left)
         XCTAssertEqual(element.textFieldView.text, "a@b.co")
     }

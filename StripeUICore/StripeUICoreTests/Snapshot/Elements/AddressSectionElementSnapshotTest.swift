@@ -43,7 +43,8 @@ class AddressSectionElementSnapshotTest: STPSnapshotTestCase {
                 state: "California"
             ))
         )
-        sut.view.forceRightToLeftLayout()
+        // Match a real RTL app: set direction on the root and let descendants inherit it.
+        sut.view.semanticContentAttribute = .forceRightToLeft
         sut.view.autosizeHeight(width: 300)
 
         XCTAssertEqual(sut.view.effectiveUserInterfaceLayoutDirection, .rightToLeft)
