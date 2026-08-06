@@ -33,7 +33,20 @@ final class SavedPaymentOptionsViewControllerSnapshotTests: STPSnapshotTestCase 
         _test_all_saved_pms_and_apple_pay_and_link(darkMode: false, showDefaultPMBadge: true)
     }
 
-    func _test_all_saved_pms_and_apple_pay_and_link(darkMode: Bool, appearance: PaymentSheet.Appearance = .default.applyingLiquidGlassIfPossible(), showDefaultPMBadge: Bool = false) {
+    func test_all_saved_pms_editing_right_to_left() {
+        _test_all_saved_pms_and_apple_pay_and_link(
+            darkMode: false,
+            showDefaultPMBadge: true,
+            rightToLeft: true
+        )
+    }
+
+    func _test_all_saved_pms_and_apple_pay_and_link(
+        darkMode: Bool,
+        appearance: PaymentSheet.Appearance = .default.applyingLiquidGlassIfPossible(),
+        showDefaultPMBadge: Bool = false,
+        rightToLeft: Bool = false
+    ) {
         let paymentMethods = [
             STPPaymentMethod._testCard(),
             STPPaymentMethod._testUSBankAccount(),
@@ -65,6 +78,9 @@ final class SavedPaymentOptionsViewControllerSnapshotTests: STPSnapshotTestCase 
         testWindow.rootViewController = sut
         // Adding sut.view as the subview should be implied by the above line, but Autolayout can't lay out the view correctly on this pass of the runloop unless we explicitly addSubview. Maybe there are side effects that happen one turn of the runloop after setting the rootViewController.
         testWindow.addSubview(sut.view)
+        if rightToLeft {
+            sut.view.forceRightToLeftLayout()
+        }
         sut.view.autosizeHeight(width: 1000)
         if showDefaultPMBadge {
             sut.isRemovingPaymentMethods = true

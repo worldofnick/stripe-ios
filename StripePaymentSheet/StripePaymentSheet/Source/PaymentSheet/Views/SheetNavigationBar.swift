@@ -73,6 +73,8 @@ class SheetNavigationBar: UIView {
     let testModeView = TestModeView()
     let appearance: PaymentSheet.Appearance
     let shouldLogPaymentSheetAnalyticsOnDismissal: Bool
+    private var lastLayoutDirection: UIUserInterfaceLayoutDirection?
+    private var collisionConstraints: [NSLayoutConstraint] = []
 
     override var isUserInteractionEnabled: Bool {
         didSet {
@@ -103,8 +105,6 @@ class SheetNavigationBar: UIView {
             dummyView.widthAnchor.constraint(equalToConstant: 0),
             leftItemsStackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0),
             leftItemsStackView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            leftItemsStackView.trailingAnchor.constraint(lessThanOrEqualTo: closeButtonRight.leadingAnchor),
-            leftItemsStackView.trailingAnchor.constraint(lessThanOrEqualTo: additionalButton.leadingAnchor),
             leftItemsStackView.heightAnchor.constraint(equalTo: heightAnchor),
 
             additionalButton.trailingAnchor.constraint(
@@ -129,6 +129,42 @@ class SheetNavigationBar: UIView {
 
     override var intrinsicContentSize: CGSize {
         return CGSize(width: UIView.noIntrinsicMetric, height: Self.height(appearance: appearance))
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // Wait until the navigation bar has a real width before activating collision constraints.
+        // Activating them during initialization forces Auto Layout to solve the bar at width zero,
+        // which can break Link's required close/back button size constraints.
+        guard bounds.width > 0 else { return }
+        updateLayoutDirectionConstraints()
+    }
+
+    private func updateLayoutDirectionConstraints() {
+        let layoutDirection = effectiveUserInterfaceLayoutDirection
+        guard lastLayoutDirection != layoutDirection else { return }
+        lastLayoutDirection = layoutDirection
+        let isRightToLeft = layoutDirection == .rightToLeft
+        // The navigation bar can be forced into RTL after its button is created, so update the glyph explicitly.
+        backButton.imageView?.transform = isRightToLeft
+            ? CGAffineTransform(scaleX: -1, y: 1)
+            : .identity
+        NSLayoutConstraint.deactivate(collisionConstraints)
+        collisionConstraints = makeCollisionConstraints(isRightToLeft: isRightToLeft)
+        NSLayoutConstraint.activate(collisionConstraints)
+    }
+
+    private func makeCollisionConstraints(isRightToLeft: Bool) -> [NSLayoutConstraint] {
+        if isRightToLeft {
+            return [
+                leftItemsStackView.leftAnchor.constraint(greaterThanOrEqualTo: closeButtonRight.rightAnchor),
+                leftItemsStackView.leftAnchor.constraint(greaterThanOrEqualTo: additionalButton.rightAnchor),
+            ]
+        }
+        return [
+            leftItemsStackView.rightAnchor.constraint(lessThanOrEqualTo: closeButtonRight.leftAnchor),
+            leftItemsStackView.rightAnchor.constraint(lessThanOrEqualTo: additionalButton.leftAnchor),
+        ]
     }
 
     @objc
@@ -234,7 +270,7 @@ extension UIButton {
         let title = isEditingPaymentMethods ? UIButton.doneButtonTitle : UIButton.editButtonTitle
         setTitle(title, for: .normal)
         titleLabel?.adjustsFontForContentSizeCategory = true
-        titleLabel?.textAlignment = .right
+        titleLabel?.textAlignment = .natural
         titleLabel?.font = appearance.scaledFont(for: appearance.font.base.medium, size: 14, maximumPointSize: 22)
         accessibilityIdentifier = "edit_saved_button"
         if appearance.navigationBarStyle.isGlass {

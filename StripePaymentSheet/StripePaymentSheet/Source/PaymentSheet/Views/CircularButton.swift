@@ -16,6 +16,7 @@ class CircularButton: UIControl {
     private let radius: CGFloat = 10
     private let shadowOpacity: Float = 0.5
     private let style: Style
+    private var mirrorsImageInRightToLeftLayout = false
     var iconStyle: PaymentSheet.Appearance.IconStyle {
         didSet {
             // No-op when changing icon style for other styles
@@ -94,9 +95,11 @@ class CircularButton: UIControl {
     }
 
     public func set(style: CircularButton.Style, with dangerColor: UIColor) {
+        mirrorsImageInRightToLeftLayout = false
         switch style {
         case .back:
             imageView.image = Image.icon_chevron_left.makeImage(template: true)
+            mirrorsImageInRightToLeftLayout = true
             accessibilityLabel = String.Localized.back
             accessibilityIdentifier = "CircularButton.Back"
         case .close:
@@ -124,6 +127,15 @@ class CircularButton: UIControl {
             accessibilityLabel = String.Localized.update_payment_method
             accessibilityIdentifier = "CircularButton.Edit"
         }
+        setNeedsLayout()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        imageView.transform = mirrorsImageInRightToLeftLayout
+            && effectiveUserInterfaceLayoutDirection == .rightToLeft
+            ? CGAffineTransform(scaleX: -1, y: 1)
+            : .identity
     }
 
     func handleEvent(_ event: STPEvent) {
