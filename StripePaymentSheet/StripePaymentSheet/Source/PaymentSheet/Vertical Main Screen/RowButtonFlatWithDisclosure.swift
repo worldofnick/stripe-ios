@@ -12,8 +12,13 @@ import UIKit
 /// A `RowButton` subclass that presents a flat layout featuring a chevron. No selected state is available for this style.
 final class RowButtonFlatWithDisclosure: RowButton {
     // MARK: - Subviews
+    private var usesDefaultDisclosureImage: Bool {
+        appearance.embeddedPaymentElement.row.flat.disclosure.disclosureImage == nil
+    }
+
     private lazy var disclosureImageView: UIImageView = {
-        let disclosureImage = appearance.embeddedPaymentElement.row.flat.disclosure.disclosureImage ?? Image.icon_chevron_right.makeImage(template: true)
+        let disclosureImage = appearance.embeddedPaymentElement.row.flat.disclosure.disclosureImage
+            ?? Image.icon_chevron_right.makeImage(template: true)
         let chevronImageView = UIImageView(image: disclosureImage)
         chevronImageView.tintColor = appearance.embeddedPaymentElement.row.flat.disclosure.color
         chevronImageView.contentMode = .scaleAspectFit
@@ -84,5 +89,13 @@ final class RowButtonFlatWithDisclosure: RowButton {
             horizontalStackView.topAnchor.constraint(greaterThanOrEqualTo: topAnchor, constant: insets),
             horizontalStackView.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor, constant: -insets),
         ])
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        disclosureImageView.transform = usesDefaultDisclosureImage
+            && effectiveUserInterfaceLayoutDirection == .rightToLeft
+            ? CGAffineTransform(scaleX: -1, y: 1)
+            : .identity
     }
 }

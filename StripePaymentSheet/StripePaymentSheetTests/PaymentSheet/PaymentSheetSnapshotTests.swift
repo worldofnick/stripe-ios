@@ -23,6 +23,7 @@ class PaymentSheetSnapshotTests: STPSnapshotTestCase {
     )!
 
     var paymentSheet: PaymentSheet!
+    private var testWindow: UIWindow?
 
     private var configuration = PaymentSheet.Configuration()
 
@@ -56,6 +57,7 @@ class PaymentSheetSnapshotTests: STPSnapshotTestCase {
         HTTPStubs.removeAllStubs()
         configuration = PaymentSheet.Configuration()
         PaymentSheet.resetCustomer()
+        testWindow = nil
     }
 
     private func stubbedAPIClient() -> STPAPIClient {
@@ -68,6 +70,74 @@ class PaymentSheetSnapshotTests: STPSnapshotTestCase {
         preparePaymentSheet()
         presentPaymentSheet(darkMode: false)
         verify(paymentSheet.bottomSheetViewController.view!)
+    }
+
+    func testPaymentSheetRightToLeft() {
+        stubNewCustomerResponse()
+
+        preparePaymentSheet()
+        presentPaymentSheet(darkMode: false)
+        let view = paymentSheet.bottomSheetViewController.view!
+        view.forceRightToLeftLayout()
+        view.layoutIfNeeded()
+        XCTAssertEqual(view.effectiveUserInterfaceLayoutDirection, .rightToLeft)
+        XCTAssertEqual(findLabel(text: "Card information", in: view)?.textAlignment, .right)
+        verify(view)
+    }
+
+    func testPaymentSheetRightToLeftDynamicType() {
+        stubNewCustomerResponse()
+
+        preparePaymentSheet()
+        presentPaymentSheet(
+            darkMode: false,
+            preferredContentSizeCategory: .accessibilityExtraExtraLarge
+        )
+        let view = paymentSheet.bottomSheetViewController.view!
+        view.forceRightToLeftLayout()
+        view.layoutIfNeeded()
+        verify(view)
+    }
+
+    func testPaymentSheetRightToLeftLandscape() {
+        stubNewCustomerResponse()
+
+        preparePaymentSheet()
+        presentPaymentSheet(
+            darkMode: false,
+            windowSize: CGSize(width: 844, height: 390),
+            additionalTraits: [
+                UITraitCollection(horizontalSizeClass: .compact),
+                UITraitCollection(verticalSizeClass: .compact),
+            ]
+        )
+        let view = paymentSheet.bottomSheetViewController.view!
+        view.forceRightToLeftLayout()
+        view.layoutIfNeeded()
+        XCTAssertEqual(view.window?.bounds.size, CGSize(width: 844, height: 390))
+        XCTAssertEqual(view.traitCollection.verticalSizeClass, .compact)
+        verify(view)
+    }
+
+    func testPaymentSheetRightToLeftIPad() {
+        stubNewCustomerResponse()
+
+        preparePaymentSheet()
+        presentPaymentSheet(
+            darkMode: false,
+            windowSize: CGSize(width: 1024, height: 1366),
+            additionalTraits: [
+                UITraitCollection(userInterfaceIdiom: .pad),
+                UITraitCollection(horizontalSizeClass: .regular),
+                UITraitCollection(verticalSizeClass: .regular),
+            ]
+        )
+        let view = paymentSheet.bottomSheetViewController.view!
+        view.forceRightToLeftLayout()
+        view.layoutIfNeeded()
+        XCTAssertEqual(view.window?.bounds.size, CGSize(width: 1024, height: 1366))
+        XCTAssertEqual(view.traitCollection.userInterfaceIdiom, .pad)
+        verify(view)
     }
 
     func testPaymentSheetDarkMode() {
@@ -1128,10 +1198,16 @@ class PaymentSheetSnapshotTests: STPSnapshotTestCase {
         self.paymentSheet = PaymentSheet(mode: mode, configuration: config)
     }
 
-    func presentPaymentSheet(darkMode: Bool, preferredContentSizeCategory: UIContentSizeCategory = .large) {
+    func presentPaymentSheet(
+        darkMode: Bool,
+        preferredContentSizeCategory: UIContentSizeCategory = .large,
+        windowSize: CGSize = CGSize(width: 428, height: 1026),
+        additionalTraits: [UITraitCollection] = []
+    ) {
         let vc = UIViewController()
         let navController = UINavigationController(rootViewController: vc)
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 428, height: 1026))
+        let window = UIWindow(frame: CGRect(origin: .zero, size: windowSize))
+        testWindow = window
         window.isHidden = false // Without this line PaymentSheet is rendered too tall; unclear why since `false` is the default
         if darkMode {
             window.overrideUserInterfaceStyle = .dark
@@ -1168,8 +1244,17 @@ class PaymentSheetSnapshotTests: STPSnapshotTestCase {
         pollForLoadingFinished()
         wait(for: [loadFinishedExpectation], timeout: 5)
         paymentSheet.bottomSheetViewController.presentationController!.overrideTraitCollection = UITraitCollection(
-            preferredContentSizeCategory: preferredContentSizeCategory
+            traitsFrom: [
+                UITraitCollection(preferredContentSizeCategory: preferredContentSizeCategory),
+            ] + additionalTraits
         )
+    }
+
+    private func findLabel(text: String, in view: UIView) -> UILabel? {
+        if let label = view as? UILabel, label.text == text {
+            return label
+        }
+        return view.subviews.lazy.compactMap { self.findLabel(text: text, in: $0) }.first
     }
 
     private func sleepInBackground(numSeconds: TimeInterval) {
