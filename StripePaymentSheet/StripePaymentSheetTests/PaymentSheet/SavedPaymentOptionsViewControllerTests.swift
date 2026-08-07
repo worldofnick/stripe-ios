@@ -224,7 +224,7 @@ class SavedPaymentOptionsViewControllerTests: XCTestCase {
             allowsPaymentMethodUpdate: true
         )
         cell.isRemovingPaymentMethods = true
-        cell.forceRightToLeftLayout()
+        cell.semanticContentAttribute = .forceRightToLeft
         cell.layoutIfNeeded()
 
         let accessibilityElements = try XCTUnwrap(cell.accessibilityElements as? [UIView])

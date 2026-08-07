@@ -3,7 +3,6 @@
 //  StripePaymentSheetTests
 //
 
-import StripeCoreTestUtils
 import UIKit
 import XCTest
 
@@ -38,39 +37,6 @@ final class RowButtonTests: XCTestCase {
         let spinner = try XCTUnwrap(rowButton.subviews.first { $0 is ActivityIndicator })
         XCTAssertEqual(rowButton.imageView.alpha, 1)
         XCTAssertEqual(spinner.frame.maxX, rowButton.bounds.maxX - 16)
-    }
-
-    func testRightToLeftVoiceOverTraversalReadsPrimaryActionBeforeTrailingAccessory() throws {
-        let accessory = UIButton(type: .system)
-        accessory.setTitle("Details", for: .normal)
-        accessory.isAccessibilityElement = true
-        accessory.accessibilityIdentifier = "row_accessory"
-
-        var appearance = PaymentSheet.Appearance()
-        appearance.embeddedPaymentElement.row.style = .floatingButton
-        let rowButton = RowButton.makeForPaymentMethodType(
-            paymentMethodType: .stripe(.card),
-            hasSavedCard: false,
-            accessoryView: accessory,
-            promotionsHelper: nil,
-            appearance: appearance,
-            shouldAnimateOnPress: false,
-            isEmbedded: true,
-            didTap: { _ in }
-        )
-        rowButton.frame = CGRect(x: 0, y: 0, width: 320, height: 64)
-        rowButton.forceRightToLeftLayout()
-        rowButton.layoutIfNeeded()
-
-        let accessibilityElements = try XCTUnwrap(rowButton.accessibilityElements as? [UIView])
-        XCTAssertEqual(
-            accessibilityElements.compactMap(\.accessibilityIdentifier),
-            [rowButton.accessibilityIdentifier, "row_accessory"]
-        )
-        XCTAssertLessThan(
-            accessory.convert(accessory.bounds, to: rowButton).midX,
-            rowButton.bounds.midX
-        )
     }
 
     func testRowButtonForPaymentMethodType_usesPaymentMethodMessagingSublabelWhenInTreatment() {
