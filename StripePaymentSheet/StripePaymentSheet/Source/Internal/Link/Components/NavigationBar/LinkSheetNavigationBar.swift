@@ -96,12 +96,17 @@ class LinkSheetNavigationBar: SheetNavigationBar {
 
     override func createBackButton() -> UIButton {
         let image = Image.icon_chevron_left_standalone.makeImage(template: true)
-        return Self.createButton(
+        let button = Self.createButton(
             with: image,
             accessibilityLabel: String.Localized.back,
             accessibilityIdentifier: "UIButton.Back",
             appearance: appearance
         )
+        button.setImage(
+            button.image(for: .normal)?.imageFlippedForRightToLeftLayoutDirection(),
+            for: .normal
+        )
+        return button
     }
 
     override func createCloseButton() -> UIButton {
