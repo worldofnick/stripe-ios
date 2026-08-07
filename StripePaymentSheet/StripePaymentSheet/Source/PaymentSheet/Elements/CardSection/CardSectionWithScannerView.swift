@@ -24,11 +24,6 @@ final class CardSectionWithScannerView: UIView {
 
     let cardSectionView: UIView
     let analyticsHelper: PaymentSheetAnalyticsHelper?
-    private lazy var sectionTitle: UILabel = {
-        let label = ElementsUI.makeSectionTitleLabel(theme: theme)
-        label.text = String.Localized.card_information
-        return label
-    }()
     lazy var cardScanButton: UIButton = {
         let button = UIButton.makeCardScanButton(theme: theme, linkAppearance: linkAppearance)
         button.addTarget(self, action: #selector(didTapCardScanButton), for: .touchUpInside)
@@ -71,6 +66,8 @@ final class CardSectionWithScannerView: UIView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     fileprivate func installConstraints() {
+        let sectionTitle = ElementsUI.makeSectionTitleLabel(theme: theme)
+        sectionTitle.text = String.Localized.card_information
         let cardSectionTitleAndButton = UIStackView(arrangedSubviews: [sectionTitle, cardScanButton])
 
         let stack = UIStackView(arrangedSubviews: [cardSectionTitleAndButton, cardSectionView, cardScanningView])
@@ -78,13 +75,6 @@ final class CardSectionWithScannerView: UIView {
         stack.spacing = ElementsUI.sectionElementInternalSpacing
         stack.setCustomSpacing(ElementsUI.formSpacing, after: cardSectionView)
         addAndPinSubview(stack)
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        // UIStackView mirrors the title and scanner button, but an untranslated LTR title otherwise
-        // remains aligned beside the scanner button instead of at the interface's leading edge.
-        sectionTitle.textAlignment = effectiveUserInterfaceLayoutDirection == .rightToLeft ? .right : .left
     }
 
     @objc func didTapCardScanButton() {
