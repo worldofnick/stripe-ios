@@ -13,6 +13,7 @@ import StripeCoreTestUtils
 import XCTest
 
 class EmbeddedPaymentMethodsViewSnapshotTests: STPSnapshotTestCase {
+    private var testWindows: [UIWindow] = []
 
     // MARK: Flat radio snapshot tests
 
@@ -893,10 +894,19 @@ class EmbeddedPaymentMethodsViewSnapshotTests: STPSnapshotTestCase {
                                                       shouldShowLink: true,
                                                       savedPaymentMethodAccessoryType: .none,
                                                       mandateProvider: MockMandateProvider())
-        embeddedView.forceRightToLeftLayout()
+        embeddedView.autosizeHeight(width: 300)
+        let containerView = UIView()
+        containerView.addAndPinSubview(embeddedView)
+        let traitHost = host(
+            containerView,
+            size: CGSize(width: 300, height: embeddedView.bounds.height),
+            traits: UITraitCollection(layoutDirection: .rightToLeft)
+        )
 
         XCTAssertEqual(embeddedView.effectiveUserInterfaceLayoutDirection, .rightToLeft)
-        verify(embeddedView, file: file, line: line)
+        withExtendedLifetime(traitHost) {
+            STPSnapshotVerifyView(containerView, file: file, line: line)
+        }
     }
 
     func testEmbeddedPaymentMethodsView_flatWithDisclosure_color() {
@@ -1448,6 +1458,27 @@ class EmbeddedPaymentMethodsViewSnapshotTests: STPSnapshotTestCase {
     ) {
         view.autosizeHeight(width: 300)
         STPSnapshotVerifyView(view, identifier: identifier, file: file, line: line)
+    }
+
+    private func host(
+        _ view: UIView,
+        size: CGSize,
+        traits: UITraitCollection
+    ) -> UIWindow {
+        let host = UIViewController()
+        let child = UIViewController()
+        child.view = view
+        host.addChild(child)
+        host.setOverrideTraitCollection(traits, forChild: child)
+        host.view.addAndPinSubview(view)
+        child.didMove(toParent: host)
+
+        let window = UIWindow(frame: CGRect(origin: .zero, size: size))
+        window.rootViewController = host
+        window.isHidden = false
+        testWindows.append(window)
+        window.layoutIfNeeded()
+        return window
     }
 }
 

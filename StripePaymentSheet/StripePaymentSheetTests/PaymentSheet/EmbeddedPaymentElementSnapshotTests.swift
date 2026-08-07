@@ -75,8 +75,11 @@ class EmbeddedPaymentElementSnapshotTests: STPSnapshotTestCase, EmbeddedPaymentE
             intentConfiguration: setupIntentConfig,
             configuration: configuration
         )
-        sut.view.forceRightToLeftLayout()
-        sut.view.autosizeHeight(width: 300)
+        let traitHost = host(
+            sut.view,
+            width: 300,
+            traits: UITraitCollection(layoutDirection: .rightToLeft)
+        )
 
         XCTAssertEqual(sut.view.effectiveUserInterfaceLayoutDirection, .rightToLeft)
         XCTAssertEqual(sut.embeddedPaymentMethodsView.effectiveUserInterfaceLayoutDirection, .rightToLeft)
@@ -92,11 +95,12 @@ class EmbeddedPaymentElementSnapshotTests: STPSnapshotTestCase, EmbeddedPaymentE
 
         let updateResult = await sut.update(intentConfiguration: paymentIntentConfig)
         XCTAssertEqual(updateResult, .succeeded)
-        sut.view.forceRightToLeftLayout()
+        sut.view.autosizeHeight(width: 300)
         let updatedCardRow = try XCTUnwrap(
             sut.embeddedPaymentMethodsView.rowButtons.first { $0.type == .new(paymentMethodType: .stripe(.card)) }
         )
         XCTAssertEqual(updatedCardRow.effectiveUserInterfaceLayoutDirection, .rightToLeft)
+        withExtendedLifetime(traitHost) {}
     }
 
     func testRightToLeftDynamicType() async throws {
@@ -104,11 +108,13 @@ class EmbeddedPaymentElementSnapshotTests: STPSnapshotTestCase, EmbeddedPaymentE
             intentConfiguration: setupIntentConfig,
             configuration: configuration
         )
-        sut.view.forceRightToLeftLayout()
         let traitHost = host(
             sut.view,
             width: 300,
-            traits: UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraLarge)
+            traits: UITraitCollection(traitsFrom: [
+                UITraitCollection(layoutDirection: .rightToLeft),
+                UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraLarge),
+            ])
         )
 
         XCTAssertEqual(
@@ -125,11 +131,11 @@ class EmbeddedPaymentElementSnapshotTests: STPSnapshotTestCase, EmbeddedPaymentE
             intentConfiguration: setupIntentConfig,
             configuration: configuration
         )
-        sut.view.forceRightToLeftLayout()
         let traitHost = host(
             sut.view,
             width: 844,
             traits: UITraitCollection(traitsFrom: [
+                UITraitCollection(layoutDirection: .rightToLeft),
                 UITraitCollection(horizontalSizeClass: .compact),
                 UITraitCollection(verticalSizeClass: .compact),
             ])
@@ -147,11 +153,11 @@ class EmbeddedPaymentElementSnapshotTests: STPSnapshotTestCase, EmbeddedPaymentE
             intentConfiguration: setupIntentConfig,
             configuration: configuration
         )
-        sut.view.forceRightToLeftLayout()
         let traitHost = host(
             sut.view,
             width: 1024,
             traits: UITraitCollection(traitsFrom: [
+                UITraitCollection(layoutDirection: .rightToLeft),
                 UITraitCollection(userInterfaceIdiom: .pad),
                 UITraitCollection(horizontalSizeClass: .regular),
                 UITraitCollection(verticalSizeClass: .regular),

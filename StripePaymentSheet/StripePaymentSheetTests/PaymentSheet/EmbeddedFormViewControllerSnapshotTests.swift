@@ -13,6 +13,7 @@
 import XCTest
 
 final class EmbeddedFormViewControllerSnapshotTests: STPSnapshotTestCase {
+    private var testWindows: [UIWindow] = []
 
     override func setUp() async throws {
         await PaymentSheetLoader.loadMiscellaneousSingletons()
@@ -47,13 +48,28 @@ final class EmbeddedFormViewControllerSnapshotTests: STPSnapshotTestCase {
         )
     }
 
-    func makeBottomSheetAndLayout(_ sut: EmbeddedFormViewController) -> BottomSheetViewController {
+    func makeBottomSheetAndLayout(
+        _ sut: EmbeddedFormViewController,
+        traits: UITraitCollection? = nil
+    ) -> BottomSheetViewController {
         let bottomSheet = BottomSheetViewController(
             contentViewController: sut,
             appearance: .default,
             isTestMode: false,
             didCancelNative3DS2: {}
         )
+        if let traits {
+            let host = UIViewController()
+            host.addChild(bottomSheet)
+            host.setOverrideTraitCollection(traits, forChild: bottomSheet)
+            host.view.addSubview(bottomSheet.view)
+            bottomSheet.didMove(toParent: host)
+
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 375, height: 1_000))
+            window.rootViewController = host
+            window.isHidden = false
+            testWindows.append(window)
+        }
         bottomSheet.view.setNeedsLayout()
         bottomSheet.view.layoutIfNeeded()
         let height = bottomSheet.view.systemLayoutSizeFitting(
@@ -70,10 +86,10 @@ final class EmbeddedFormViewControllerSnapshotTests: STPSnapshotTestCase {
         file: StaticString = #file,
         line: UInt = #line
     ) {
-        let bottomSheet = makeBottomSheetAndLayout(sut)
+        let traits = rightToLeft ? UITraitCollection(layoutDirection: .rightToLeft) : nil
+        let bottomSheet = makeBottomSheetAndLayout(sut, traits: traits)
         if rightToLeft {
-            bottomSheet.view.forceRightToLeftLayout()
-            bottomSheet.view.layoutIfNeeded()
+            XCTAssertEqual(bottomSheet.view.effectiveUserInterfaceLayoutDirection, .rightToLeft)
         }
         STPSnapshotVerifyView(bottomSheet.view, identifier: identifier, file: file, line: line)
     }
