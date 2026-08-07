@@ -73,7 +73,6 @@ class SheetNavigationBar: UIView {
     let testModeView = TestModeView()
     let appearance: PaymentSheet.Appearance
     let shouldLogPaymentSheetAnalyticsOnDismissal: Bool
-    private var lastLayoutDirection: UIUserInterfaceLayoutDirection?
     private var collisionConstraints: [NSLayoutConstraint] = []
 
     override var isUserInteractionEnabled: Bool {
@@ -136,20 +135,8 @@ class SheetNavigationBar: UIView {
         // Wait until the navigation bar has a real width before activating collision constraints.
         // Activating them during initialization forces Auto Layout to solve the bar at width zero,
         // which can break Link's required close/back button size constraints.
-        guard bounds.width > 0 else { return }
-        updateLayoutDirectionConstraints()
-    }
-
-    private func updateLayoutDirectionConstraints() {
-        let layoutDirection = effectiveUserInterfaceLayoutDirection
-        guard lastLayoutDirection != layoutDirection else { return }
-        lastLayoutDirection = layoutDirection
-        let isRightToLeft = layoutDirection == .rightToLeft
-        // The navigation bar can be forced into RTL after its button is created, so update the glyph explicitly.
-        backButton.imageView?.transform = isRightToLeft
-            ? CGAffineTransform(scaleX: -1, y: 1)
-            : .identity
-        NSLayoutConstraint.deactivate(collisionConstraints)
+        guard bounds.width > 0, collisionConstraints.isEmpty else { return }
+        let isRightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
         collisionConstraints = makeCollisionConstraints(isRightToLeft: isRightToLeft)
         NSLayoutConstraint.activate(collisionConstraints)
     }
@@ -228,6 +215,7 @@ class SheetNavigationBar: UIView {
     func createPlainBackButton() -> UIButton {
         let button = SheetNavigationButton(type: .custom)
         let image = Image.icon_chevron_left_standalone.makeImage(template: true)
+            .imageFlippedForRightToLeftLayoutDirection()
         button.setImage(image, for: .normal)
         button.tintColor = appearance.colors.icon
         button.accessibilityLabel = String.Localized.back
@@ -242,7 +230,8 @@ class SheetNavigationBar: UIView {
         button.heightAnchor.constraint(equalToConstant: size).isActive = true
 
         let config = UIImage.SymbolConfiguration(pointSize: 20, weight: .regular)
-        let image = UIImage(systemName: "chevron.left", withConfiguration: config)
+        let image = UIImage(systemName: "chevron.left", withConfiguration: config)?
+            .imageFlippedForRightToLeftLayoutDirection()
 
         button.setImage(image, for: .normal)
         button.tintColor = appearance.colors.icon
