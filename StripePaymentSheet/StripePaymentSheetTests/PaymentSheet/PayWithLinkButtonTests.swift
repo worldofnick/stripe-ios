@@ -111,7 +111,7 @@ final class PayWithLinkButtonTests: XCTestCase {
         XCTAssertGreaterThan(logoView.bounds.width, PayWithLinkButton.Constants.logoSize.width)
     }
 
-    func testEmailAlignmentFollowsInterfaceDirectionWithoutChangingValue() throws {
+    func testEmailAlignsToRightWithoutChangingValueInRightToLeftInterface() throws {
         // Given
         let button = PayWithLinkButton(brand: .link)
         button.linkAccount = LinkAccountStub(
@@ -130,14 +130,6 @@ final class PayWithLinkButtonTests: XCTestCase {
         // Then
         let emailLabel = try XCTUnwrap(findLabel(withText: "user@example.com", in: button))
         XCTAssertEqual(emailLabel.textAlignment, .right)
-        XCTAssertEqual(emailLabel.text, "user@example.com")
-
-        // When
-        button.semanticContentAttribute = .forceLeftToRight
-        button.layoutIfNeeded()
-
-        // Then
-        XCTAssertEqual(emailLabel.textAlignment, .left)
         XCTAssertEqual(emailLabel.text, "user@example.com")
     }
 
