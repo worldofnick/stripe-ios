@@ -112,27 +112,21 @@ class FloatingPlaceholderTextFieldView: UIView {
         placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(placeholderLabel)
         NSLayoutConstraint.activate([
-            placeholderLeadingConstraint,
+            placeholderLabel.centerXAnchor.constraint(equalTo: textField.leadingAnchor),
             placeholderCenterYConstraint,
         ])
-        updateLayoutDirection()
     }
 
-    private lazy var placeholderLeadingConstraint = placeholderLabel.centerXAnchor.constraint(equalTo: textField.leadingAnchor)
-    private var lastLayoutDirection: UIUserInterfaceLayoutDirection?
-
-    private func updateLayoutDirection() {
-        let layoutDirection = effectiveUserInterfaceLayoutDirection
-        guard layoutDirection != lastLayoutDirection else { return }
-        lastLayoutDirection = layoutDirection
-        let isRightToLeft = layoutDirection == .rightToLeft
-        // Scale the floating label from the start of its text instead of its center.
-        placeholderLabel.layer.anchorPoint = CGPoint(x: isRightToLeft ? 1 : 0, y: 0.5)
-    }
+    private var hasConfiguredPlaceholderAnchorPoint = false
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        updateLayoutDirection()
+        guard !hasConfiguredPlaceholderAnchorPoint else { return }
+        hasConfiguredPlaceholderAnchorPoint = true
+
+        // Scale the floating label from the start of its text instead of its center.
+        let isRightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
+        placeholderLabel.layer.anchorPoint = CGPoint(x: isRightToLeft ? 1 : 0, y: 0.5)
     }
 
     // MARK: - Animate placeholder
