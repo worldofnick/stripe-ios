@@ -40,6 +40,7 @@ extension RowButton {
                     return nil
                 case .viewMoreChevron, .update, .changeWithChevron:
                     return Image.icon_chevron_right.makeImage(template: true)
+                        .imageFlippedForRightToLeftLayoutDirection()
                         .withAlignmentRectInsets(UIEdgeInsets(top: -2, left: 0, bottom: 0, right: 0))
                 }
             }
@@ -58,7 +59,7 @@ extension RowButton {
             return label
         }
 
-        private lazy var imageView: UIImageView? = {
+        private var imageView: UIImageView? {
             guard let image = accessoryType.accessoryImage else { return nil }
             let imageView = UIImageView(image: image)
             if accessoryType == .update {
@@ -69,7 +70,7 @@ extension RowButton {
             imageView.contentMode = .scaleAspectFit
             imageView.isAccessibilityElement = false
             return imageView
-        }()
+        }
 
         private var stackView: UIStackView {
             let views: [UIView] = [label, imageView].compactMap { $0 }
@@ -115,13 +116,6 @@ extension RowButton {
 
         required init?(coder: NSCoder) {
             fatalError("init(coder:) has not been implemented")
-        }
-
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            imageView?.transform = effectiveUserInterfaceLayoutDirection == .rightToLeft
-                ? CGAffineTransform(scaleX: -1, y: 1)
-                : .identity
         }
 
         @objc func handleTap() {
