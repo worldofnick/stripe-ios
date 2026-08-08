@@ -15,8 +15,6 @@ final class AttributedLabel: UILabel {
     private let customFont: FinancialConnectionsFont
     private let customTextColor: UIColor
     private var customTextAlignment: NSTextAlignment?
-    private var followsInterfaceLayoutDirection = true
-    private var currentText = ""
 
     // one can accidentally forget to call `setText` instead of `text` so
     // this makes it convenient to use `AttributedLabel`
@@ -29,8 +27,6 @@ final class AttributedLabel: UILabel {
     override var textAlignment: NSTextAlignment {
         didSet {
             self.customTextAlignment = textAlignment
-            followsInterfaceLayoutDirection = false
-            setText(currentText)
         }
     }
 
@@ -45,19 +41,6 @@ final class AttributedLabel: UILabel {
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        guard followsInterfaceLayoutDirection else {
-            return
-        }
-        let textAlignment: NSTextAlignment = effectiveUserInterfaceLayoutDirection == .rightToLeft ? .right : .left
-        guard customTextAlignment != textAlignment else {
-            return
-        }
-        customTextAlignment = textAlignment
-        setText(currentText)
     }
 
     // UILabel with custom `lineHeight` via `NSParagraphStyle` was not properly
@@ -91,7 +74,6 @@ final class AttributedLabel: UILabel {
     }
 
     func setText(_ text: String, underline: Bool = false) {
-        currentText = text
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.minimumLineHeight = customFont.lineHeight
         paragraphStyle.maximumLineHeight = customFont.lineHeight
