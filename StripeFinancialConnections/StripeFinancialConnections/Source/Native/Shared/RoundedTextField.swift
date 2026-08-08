@@ -629,8 +629,7 @@ private class FloatingPlaceholderTextField: UITextField {
 
     override var intrinsicContentSize: CGSize {
         let height = UIFontMetrics.default.scaledValue(
-            for: FloatingPlaceholderTextField.LayoutConstants.defaultHeight,
-            compatibleWith: traitCollection
+            for: FloatingPlaceholderTextField.LayoutConstants.defaultHeight
         )
         let contentPadding = self.contentPadding()
         return CGSize(

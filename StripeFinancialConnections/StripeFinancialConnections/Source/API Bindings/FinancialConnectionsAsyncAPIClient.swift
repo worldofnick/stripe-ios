@@ -23,7 +23,6 @@ final class FinancialConnectionsAsyncAPIClient {
     }
 
     let backingAPIClient: STPAPIClient
-    private let locale: Locale
 
     var isLinkWithStripe: Bool = false
 
@@ -55,9 +54,8 @@ final class FinancialConnectionsAsyncAPIClient {
         isLinkWithStripe ? "ios_instant_debits" : "ios_connections"
     }
 
-    init(apiClient: STPAPIClient, locale: Locale = .current) {
+    init(apiClient: STPAPIClient) {
         self.backingAPIClient = apiClient
-        self.locale = locale
     }
 
     /// Returns the `consumerPublishableKey` for scenarios where it is valid to do so. That is;
@@ -227,7 +225,7 @@ extension FinancialConnectionsAsyncAPIClient {
         var parameters: [String: Any] = [
             "expand": ["manifest.active_auth_session"],
             "client_secret": clientSecret,
-            "locale": locale.toLanguageTag(),
+            "locale": Locale.current.toLanguageTag(),
         ]
 
         var mobileParameters: [String: Any] = [
@@ -676,7 +674,7 @@ extension FinancialConnectionsAsyncAPIClient {
             .lowercased()
         parameters["phone_number"] = phoneNumber
         parameters["country"] = country
-        parameters["locale"] = (phoneNumber != nil) ? locale.toLanguageTag() : nil
+        parameters["locale"] = (phoneNumber != nil) ? Locale.current.toLanguageTag() : nil
         parameters["consumer_session_client_secret"] = consumerSessionClientSecret
         return try await post(endpoint: .saveAccountsToLink, parameters: parameters)
     }
@@ -766,7 +764,7 @@ extension FinancialConnectionsAsyncAPIClient {
             "credentials": [
                 "consumer_session_client_secret": consumerSessionClientSecret,
             ],
-            "locale": locale.toLanguageTag(),
+            "locale": Locale.current.toLanguageTag(),
         ]
         parameters["custom_email_type"] = customEmailType
         parameters["connections_merchant_name"] = connectionsMerchantName
@@ -817,7 +815,7 @@ extension FinancialConnectionsAsyncAPIClient {
             "phone_number": phoneNumber,
             "country": country,
             "country_inferring_method": "PHONE_NUMBER",
-            "locale": locale.toLanguageTag(),
+            "locale": Locale.current.toLanguageTag(),
             "consent_action": "entered_phone_number_clicked_save_to_link",
         ]
 

@@ -174,9 +174,6 @@ final class TwoOptionSelectorView: UIView {
         configureButton(rightButton, item: rightItem)
         buttonsStackView.addArrangedSubview(leftButton)
         buttonsStackView.addArrangedSubview(rightButton)
-        // The first logical option is visually leading in both directions, so this order also
-        // follows VoiceOver's expected right-to-left traversal when the stack mirrors.
-        buttonsStackView.accessibilityElements = [leftButton, rightButton]
 
         // Indicator constraints
         selectionIndicatorView.translatesAutoresizingMaskIntoConstraints = false

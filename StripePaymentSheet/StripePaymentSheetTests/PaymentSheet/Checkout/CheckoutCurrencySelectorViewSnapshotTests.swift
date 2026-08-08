@@ -28,30 +28,8 @@ final class CheckoutCurrencySelectorViewSnapshotTests: STPSnapshotTestCase {
 
     func testRightToLeft() async throws {
         let view = try await makeCurrencySelectorView(selectedCurrency: "gbp")
-        view.forceRightToLeftLayout()
+        view.semanticContentAttribute = .forceRightToLeft
         verify(view)
-
-        let localCurrencyButton = try XCTUnwrap(findView(
-            withAccessibilityIdentifier: "currency_option_gbp",
-            in: view
-        ) as? UIButton)
-        let integrationCurrencyButton = try XCTUnwrap(findView(
-            withAccessibilityIdentifier: "currency_option_usd",
-            in: view
-        ) as? UIButton)
-        XCTAssertGreaterThan(
-            localCurrencyButton.convert(localCurrencyButton.bounds, to: view).midX,
-            integrationCurrencyButton.convert(integrationCurrencyButton.bounds, to: view).midX
-        )
-
-        let accessibilityContainer = try XCTUnwrap(findView(
-            withAccessibilityElements: [localCurrencyButton, integrationCurrencyButton],
-            in: view
-        ))
-        XCTAssertEqual(
-            (accessibilityContainer.accessibilityElements as? [UIView])?.compactMap(\.accessibilityIdentifier),
-            ["currency_option_gbp", "currency_option_usd"]
-        )
     }
 
     func testDarkMode() async throws {
@@ -244,21 +222,6 @@ final class CheckoutCurrencySelectorViewSnapshotTests: STPSnapshotTestCase {
         selectorView?.expandableDetailView.toggleExpansion()
         view.setNeedsLayout()
         view.layoutIfNeeded()
-    }
-
-    private func findView(withAccessibilityIdentifier identifier: String, in view: UIView) -> UIView? {
-        if view.accessibilityIdentifier == identifier {
-            return view
-        }
-        return view.subviews.lazy.compactMap { self.findView(withAccessibilityIdentifier: identifier, in: $0) }.first
-    }
-
-    private func findView(withAccessibilityElements elements: [UIView], in view: UIView) -> UIView? {
-        if let accessibilityElements = view.accessibilityElements as? [UIView],
-           accessibilityElements.elementsEqual(elements, by: { $0 === $1 }) {
-            return view
-        }
-        return view.subviews.lazy.compactMap { self.findView(withAccessibilityElements: elements, in: $0) }.first
     }
 
     @MainActor
