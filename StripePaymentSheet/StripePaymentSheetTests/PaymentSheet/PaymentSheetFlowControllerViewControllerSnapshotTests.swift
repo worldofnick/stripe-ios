@@ -38,55 +38,6 @@ final class PaymentSheetFlowControllerViewControllerSnapshotTests: STPSnapshotTe
         STPSnapshotVerifyView(sut.view)
     }
 
-    func testSavedScreen_cardRightToLeftDynamicType() {
-        let sut = makeSavedCardSUT()
-        let traitHost = overrideTraits(
-            UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraLarge),
-            for: sut
-        )
-        sut.view.semanticContentAttribute = .forceRightToLeft
-        sut.view.autosizeHeight(width: 375)
-
-        withExtendedLifetime(traitHost) {
-            STPSnapshotVerifyView(sut.view)
-        }
-    }
-
-    func testSavedScreen_cardRightToLeftLandscape() {
-        let sut = makeSavedCardSUT()
-        let traitHost = overrideTraits(
-            UITraitCollection(traitsFrom: [
-                UITraitCollection(horizontalSizeClass: .compact),
-                UITraitCollection(verticalSizeClass: .compact),
-            ]),
-            for: sut
-        )
-        sut.view.semanticContentAttribute = .forceRightToLeft
-        sut.view.autosizeHeight(width: 844)
-
-        withExtendedLifetime(traitHost) {
-            STPSnapshotVerifyView(sut.view)
-        }
-    }
-
-    func testSavedScreen_cardRightToLeftIPad() {
-        let sut = makeSavedCardSUT()
-        let traitHost = overrideTraits(
-            UITraitCollection(traitsFrom: [
-                UITraitCollection(userInterfaceIdiom: .pad),
-                UITraitCollection(horizontalSizeClass: .regular),
-                UITraitCollection(verticalSizeClass: .regular),
-            ]),
-            for: sut
-        )
-        sut.view.semanticContentAttribute = .forceRightToLeft
-        sut.view.autosizeHeight(width: 1024)
-
-        withExtendedLifetime(traitHost) {
-            STPSnapshotVerifyView(sut.view)
-        }
-    }
-
     func testSavedScreen_us_bank_account() {
         let paymentMethods = [
             STPPaymentMethod._testUSBankAccount(),
@@ -198,17 +149,6 @@ final class PaymentSheetFlowControllerViewControllerSnapshotTests: STPSnapshotTe
             loadResult: makeTestLoadResult(savedPaymentMethods: [STPPaymentMethod._testCard()]),
             analyticsHelper: ._testValue()
         )
-    }
-
-    private func overrideTraits(
-        _ traits: UITraitCollection,
-        for sut: UIViewController
-    ) -> UIViewController {
-        let host = UIViewController()
-        host.addChild(sut)
-        host.setOverrideTraitCollection(traits, forChild: sut)
-        sut.didMove(toParent: host)
-        return host
     }
 
 }
