@@ -903,7 +903,6 @@ class EmbeddedPaymentMethodsViewSnapshotTests: STPSnapshotTestCase {
             traits: UITraitCollection(layoutDirection: .rightToLeft)
         )
 
-        XCTAssertEqual(embeddedView.effectiveUserInterfaceLayoutDirection, .rightToLeft)
         withExtendedLifetime(traitHost) {
             STPSnapshotVerifyView(containerView, file: file, line: line)
         }

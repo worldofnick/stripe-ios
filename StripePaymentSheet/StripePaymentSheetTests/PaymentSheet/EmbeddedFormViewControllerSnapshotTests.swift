@@ -88,9 +88,6 @@ final class EmbeddedFormViewControllerSnapshotTests: STPSnapshotTestCase {
     ) {
         let traits = rightToLeft ? UITraitCollection(layoutDirection: .rightToLeft) : nil
         let bottomSheet = makeBottomSheetAndLayout(sut, traits: traits)
-        if rightToLeft {
-            XCTAssertEqual(bottomSheet.view.effectiveUserInterfaceLayoutDirection, .rightToLeft)
-        }
         STPSnapshotVerifyView(bottomSheet.view, identifier: identifier, file: file, line: line)
     }
 

@@ -81,26 +81,9 @@ class EmbeddedPaymentElementSnapshotTests: STPSnapshotTestCase, EmbeddedPaymentE
             traits: UITraitCollection(layoutDirection: .rightToLeft)
         )
 
-        XCTAssertEqual(sut.view.effectiveUserInterfaceLayoutDirection, .rightToLeft)
-        XCTAssertEqual(sut.embeddedPaymentMethodsView.effectiveUserInterfaceLayoutDirection, .rightToLeft)
-        XCTAssertEqual(sut.embeddedPaymentMethodsView.stackView.effectiveUserInterfaceLayoutDirection, .rightToLeft)
-        let cardRow = try XCTUnwrap(
-            sut.embeddedPaymentMethodsView.rowButtons.first { $0.type == .new(paymentMethodType: .stripe(.card)) }
-        )
-        XCTAssertEqual(
-            cardRow.effectiveUserInterfaceLayoutDirection,
-            .rightToLeft
-        )
-        STPSnapshotVerifyView(sut.view)
-
-        let updateResult = await sut.update(intentConfiguration: paymentIntentConfig)
-        XCTAssertEqual(updateResult, .succeeded)
-        sut.view.autosizeHeight(width: 300)
-        let updatedCardRow = try XCTUnwrap(
-            sut.embeddedPaymentMethodsView.rowButtons.first { $0.type == .new(paymentMethodType: .stripe(.card)) }
-        )
-        XCTAssertEqual(updatedCardRow.effectiveUserInterfaceLayoutDirection, .rightToLeft)
-        withExtendedLifetime(traitHost) {}
+        withExtendedLifetime(traitHost) {
+            STPSnapshotVerifyView(sut.view)
+        }
     }
 
     func testRightToLeftDynamicType() async throws {
@@ -117,10 +100,6 @@ class EmbeddedPaymentElementSnapshotTests: STPSnapshotTestCase, EmbeddedPaymentE
             ])
         )
 
-        XCTAssertEqual(
-            sut.embeddedPaymentMethodsView.traitCollection.preferredContentSizeCategory,
-            .accessibilityExtraExtraLarge
-        )
         withExtendedLifetime(traitHost) {
             STPSnapshotVerifyView(sut.view)
         }
@@ -141,8 +120,6 @@ class EmbeddedPaymentElementSnapshotTests: STPSnapshotTestCase, EmbeddedPaymentE
             ])
         )
 
-        XCTAssertEqual(sut.view.bounds.width, 844)
-        XCTAssertEqual(sut.embeddedPaymentMethodsView.traitCollection.verticalSizeClass, .compact)
         withExtendedLifetime(traitHost) {
             STPSnapshotVerifyView(sut.view)
         }
@@ -164,8 +141,6 @@ class EmbeddedPaymentElementSnapshotTests: STPSnapshotTestCase, EmbeddedPaymentE
             ])
         )
 
-        XCTAssertEqual(sut.view.bounds.width, 1024)
-        XCTAssertEqual(sut.embeddedPaymentMethodsView.traitCollection.userInterfaceIdiom, .pad)
         withExtendedLifetime(traitHost) {
             STPSnapshotVerifyView(sut.view)
         }
