@@ -73,7 +73,6 @@ class SheetNavigationBar: UIView {
     let testModeView = TestModeView()
     let appearance: PaymentSheet.Appearance
     let shouldLogPaymentSheetAnalyticsOnDismissal: Bool
-    private var collisionConstraints: [NSLayoutConstraint] = []
 
     override var isUserInteractionEnabled: Bool {
         didSet {
@@ -104,6 +103,8 @@ class SheetNavigationBar: UIView {
             dummyView.widthAnchor.constraint(equalToConstant: 0),
             leftItemsStackView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0),
             leftItemsStackView.centerYAnchor.constraint(equalTo: centerYAnchor),
+            leftItemsStackView.trailingAnchor.constraint(lessThanOrEqualTo: closeButtonRight.leadingAnchor),
+            leftItemsStackView.trailingAnchor.constraint(lessThanOrEqualTo: additionalButton.leadingAnchor),
             leftItemsStackView.heightAnchor.constraint(equalTo: heightAnchor),
 
             additionalButton.trailingAnchor.constraint(
@@ -128,30 +129,6 @@ class SheetNavigationBar: UIView {
 
     override var intrinsicContentSize: CGSize {
         return CGSize(width: UIView.noIntrinsicMetric, height: Self.height(appearance: appearance))
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        // Wait until the navigation bar has a real width before activating collision constraints.
-        // Activating them during initialization forces Auto Layout to solve the bar at width zero,
-        // which can break Link's required close/back button size constraints.
-        guard bounds.width > 0, collisionConstraints.isEmpty else { return }
-        let isRightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
-        collisionConstraints = makeCollisionConstraints(isRightToLeft: isRightToLeft)
-        NSLayoutConstraint.activate(collisionConstraints)
-    }
-
-    private func makeCollisionConstraints(isRightToLeft: Bool) -> [NSLayoutConstraint] {
-        if isRightToLeft {
-            return [
-                leftItemsStackView.leftAnchor.constraint(greaterThanOrEqualTo: closeButtonRight.rightAnchor),
-                leftItemsStackView.leftAnchor.constraint(greaterThanOrEqualTo: additionalButton.rightAnchor),
-            ]
-        }
-        return [
-            leftItemsStackView.rightAnchor.constraint(lessThanOrEqualTo: closeButtonRight.leftAnchor),
-            leftItemsStackView.rightAnchor.constraint(lessThanOrEqualTo: additionalButton.leftAnchor),
-        ]
     }
 
     @objc
