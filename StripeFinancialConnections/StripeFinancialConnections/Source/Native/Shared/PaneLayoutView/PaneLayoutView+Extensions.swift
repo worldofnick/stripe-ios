@@ -92,12 +92,12 @@ extension PaneLayoutView {
         }
 
         if let title = accessibleTitle {
-            let (textAlignment, directionalAlignment): (NSTextAlignment?, UIStackView.Alignment?) = {
+            let textAlignment: NSTextAlignment? = {
                 switch alignment {
-                case .leading: return (nil, .leading)
-                case .center: return (.center, nil)
-                case .trailing: return (nil, .trailing)
-                default: return (nil, nil)
+                case .leading: return .left
+                case .center: return .center
+                case .trailing: return .right
+                default: return nil
                 }
             }()
             let titleFont: FinancialConnectionsFont = isSheet ? .heading(.large) : .heading(.extraLarge)
@@ -106,8 +106,7 @@ extension PaneLayoutView {
                 boldFont: titleFont,
                 linkFont: titleFont,
                 textColor: FinancialConnectionsAppearance.Colors.textDefault,
-                alignment: textAlignment,
-                directionalAlignment: directionalAlignment
+                alignment: textAlignment
             )
             titleLabel.setText(title.text)
             titleLabel.accessibilityLabel = title.accessibilityText

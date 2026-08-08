@@ -126,13 +126,6 @@ class TestModeAutofillBannerView: UIView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        let isRightToLeft = effectiveUserInterfaceLayoutDirection == .rightToLeft
-        messageLabel.textAlignment = isRightToLeft ? .right : .left
-        autofillDataButton.titleLabel?.textAlignment = isRightToLeft ? .left : .right
-    }
-
     @objc private func autofillTapped() {
         didTapAutofill()
     }
