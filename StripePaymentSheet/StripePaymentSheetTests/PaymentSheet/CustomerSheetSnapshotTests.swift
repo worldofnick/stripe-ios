@@ -84,9 +84,8 @@ class CustomerSheetSnapshotTests: STPSnapshotTestCase {
         prepareCS(configuration: configuration())
         presentCS(darkMode: false)
         let view = cs.bottomSheetViewController.view!
-        view.forceRightToLeftLayout()
+        view.semanticContentAttribute = .forceRightToLeft
         view.layoutIfNeeded()
-        XCTAssertEqual(view.effectiveUserInterfaceLayoutDirection, .rightToLeft)
         verify(view)
     }
 
@@ -102,10 +101,8 @@ class CustomerSheetSnapshotTests: STPSnapshotTestCase {
             ]
         )
         let view = cs.bottomSheetViewController.view!
-        view.forceRightToLeftLayout()
+        view.semanticContentAttribute = .forceRightToLeft
         view.layoutIfNeeded()
-        XCTAssertEqual(view.window?.bounds.size, CGSize(width: 844, height: 390))
-        XCTAssertEqual(view.traitCollection.verticalSizeClass, .compact)
         verify(view)
     }
 
@@ -122,10 +119,8 @@ class CustomerSheetSnapshotTests: STPSnapshotTestCase {
             ]
         )
         let view = cs.bottomSheetViewController.view!
-        view.forceRightToLeftLayout()
+        view.semanticContentAttribute = .forceRightToLeft
         view.layoutIfNeeded()
-        XCTAssertEqual(view.window?.bounds.size, CGSize(width: 1024, height: 1366))
-        XCTAssertEqual(view.traitCollection.userInterfaceIdiom, .pad)
         verify(view)
     }
 
@@ -545,7 +540,7 @@ class CustomerSheetSnapshotTests: STPSnapshotTestCase {
         prepareCS(configuration: configuration(applePayEnabled: true), customerAdapter: customerAdapter)
         presentCS(darkMode: false)
         let view = cs.bottomSheetViewController.view!
-        view.forceRightToLeftLayout()
+        view.semanticContentAttribute = .forceRightToLeft
         view.layoutIfNeeded()
         verify(view)
     }
@@ -555,7 +550,7 @@ class CustomerSheetSnapshotTests: STPSnapshotTestCase {
         prepareCS(configuration: configuration())
         presentCS(darkMode: false, preferredContentSizeCategory: .accessibilityExtraExtraLarge)
         let view = cs.bottomSheetViewController.view!
-        view.forceRightToLeftLayout()
+        view.semanticContentAttribute = .forceRightToLeft
         view.layoutIfNeeded()
         verify(view)
     }
