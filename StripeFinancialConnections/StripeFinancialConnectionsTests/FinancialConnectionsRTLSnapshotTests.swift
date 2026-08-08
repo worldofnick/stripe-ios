@@ -101,7 +101,7 @@ final class FinancialConnectionsRTLSnapshotTests: STPSnapshotTestCase {
             nativeSurface = makeNativeSurface()
         }
         contentViewController.view.addAndPinSubview(nativeSurface)
-        contentViewController.view.forceRightToLeftLayout()
+        contentViewController.view.semanticContentAttribute = .forceRightToLeft
         window.setNeedsLayout()
         window.layoutIfNeeded()
         return contentViewController.view

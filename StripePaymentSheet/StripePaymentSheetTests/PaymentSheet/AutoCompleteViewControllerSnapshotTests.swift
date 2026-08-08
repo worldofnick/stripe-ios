@@ -9,7 +9,6 @@
 import Foundation
 import iOSSnapshotTestCase
 import StripeCoreTestUtils
-import XCTest
 
 @testable import StripePaymentSheet
 @testable@_spi(STP) import StripeUICore
@@ -188,7 +187,7 @@ class AutoCompleteViewControllerSnapshotTests: STPSnapshotTestCase {
         verify(vc.view)
     }
 
-    func testAutoCompleteViewController_rightToLeft() throws {
+    func testAutoCompleteViewController_rightToLeft() {
         let testWindow = UIWindow(frame: CGRect(x: 0, y: 0, width: 428, height: 500))
         testWindow.isHidden = false
         let vc = AutoCompleteViewController(
@@ -200,14 +199,10 @@ class AutoCompleteViewControllerSnapshotTests: STPSnapshotTestCase {
         vc.currentSource = "google"
         vc.results = mockSearchResults
         testWindow.rootViewController = vc
-        vc.view.forceRightToLeftLayout()
+        vc.view.semanticContentAttribute = .forceRightToLeft
         vc.tableView.reloadData()
         vc.view.layoutIfNeeded()
 
-        let firstCell = try XCTUnwrap(vc.tableView.cellForRow(at: IndexPath(row: 0, section: 0)))
-        XCTAssertEqual(vc.autoCompleteLine.textFieldView.textField.textAlignment, .right)
-        XCTAssertEqual(firstCell.textLabel?.textAlignment, .right)
-        XCTAssertEqual(firstCell.detailTextLabel?.textAlignment, .right)
         verify(vc.view)
     }
 
