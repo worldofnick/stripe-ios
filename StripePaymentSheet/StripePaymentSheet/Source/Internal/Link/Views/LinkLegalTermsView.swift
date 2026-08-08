@@ -81,7 +81,7 @@ final class LinkLegalTermsView: UIView {
         return textView
     }()
 
-    init(textAlignment: NSTextAlignment = .natural,
+    init(textAlignment: NSTextAlignment = .left,
          mode: LinkInlineSignupViewModel.Mode = .checkbox,
          brand: LinkBrand = .link,
          emailWasPrefilled: Bool = false,
