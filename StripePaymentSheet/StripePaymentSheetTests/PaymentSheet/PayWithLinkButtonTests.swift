@@ -3,7 +3,6 @@
 //  StripePaymentSheetTests
 //
 
-import StripeCoreTestUtils
 @testable @_spi(STP) import StripePaymentSheet
 import XCTest
 
@@ -124,7 +123,7 @@ final class PayWithLinkButtonTests: XCTestCase {
         button.frame = CGRect(origin: .zero, size: CGSize(width: 240, height: 44))
 
         // When
-        button.forceRightToLeftLayout()
+        button.semanticContentAttribute = .forceRightToLeft
         button.layoutIfNeeded()
 
         // Then
