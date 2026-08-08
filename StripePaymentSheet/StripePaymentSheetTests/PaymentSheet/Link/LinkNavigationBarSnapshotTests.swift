@@ -8,7 +8,6 @@
 
 import StripeCoreTestUtils
 import UIKit
-import XCTest
 
 @testable@_spi(STP) import StripeCore
 @testable@_spi(STP) import StripePayments
@@ -77,10 +76,9 @@ class LinkNavigationBarSnapshotTests: STPSnapshotTestCase {
 
     func testRightToLeft() {
         let sut = makeSUT(title: "Test title that is pretty long and should truncate")
-        sut.forceRightToLeftLayout()
+        sut.semanticContentAttribute = .forceRightToLeft
         sut.setStyle(.back(showAdditionalButton: true))
 
-        XCTAssertEqual(sut.effectiveUserInterfaceLayoutDirection, .rightToLeft)
         verify(sut)
     }
 

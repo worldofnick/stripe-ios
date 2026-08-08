@@ -88,7 +88,7 @@ class LinkVerificationViewSnapshotTests: STPSnapshotTestCase {
         line: UInt = #line
     ) {
         if rightToLeft {
-            view.forceRightToLeftLayout()
+            view.semanticContentAttribute = .forceRightToLeft
         }
         view.autosizeHeight(width: 340)
         STPSnapshotVerifyView(view, identifier: identifier, file: file, line: line)

@@ -75,7 +75,7 @@ final class WalletViewControllerSnapshotTests: STPSnapshotTestCase {
         line: UInt = #line
     ) {
         if rightToLeft {
-            view.forceRightToLeftLayout()
+            view.semanticContentAttribute = .forceRightToLeft
         }
         view.autosizeHeight(width: 335)
         view.backgroundColor = .white
