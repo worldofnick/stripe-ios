@@ -6,14 +6,15 @@ They are not XCTest or snapshot-test output.
 
 | | Value |
 | --- | --- |
-| Before | `91bc9060284` (`codex/rtl-flow-controller`) |
-| After production and test changes | `5a23279353f` |
+| Before | `8c1a3f73c47` (`codex/rtl-flow-controller`) |
+| After production and test changes | `c0df100538c` |
 | Simulator | iPhone 12 mini, iOS 18.0 (`79CA7DB2-0A4B-4EC4-B93C-D28E8C9458F1`) |
 | App | `com.stripe.PaymentSheet-Example` |
 | Launch | Normal launch with `-AppleTextDirection YES -NSForceRightToLeftWritingDirection YES`; no `UITesting` environment |
+| Capture | Native Simulator framebuffer via `xcrun simctl io ... screenshot`; no desktop cursor or Simulator chrome |
 | Xcode | 26.4.1 (17E202) |
-| Before `StripePaymentSheet` SHA-256 | `c4c630c98f9b68274db026eae42f00592189367c2fccb99bf5c660930acd29ec` |
-| After `StripePaymentSheet` SHA-256 | `52c0838b45337e01e2ebff9667cfe57cea1515c7331022408d91efd78e8a8f9a` |
+| Before `StripePaymentSheet` SHA-256 | `436b3769572f625c4fcfb45778ad27996eaeb6333d255141222233e3090d10f5` |
+| After `StripePaymentSheet` SHA-256 | `287f5aa8ce5579e26daa8102282078f5857c98af64ab2ccb3b3d909accf2859e` |
 
 The first three pairs are negative controls: PR7 does not change those row
 implementations, so their inherited RTL layouts should remain stable. The
