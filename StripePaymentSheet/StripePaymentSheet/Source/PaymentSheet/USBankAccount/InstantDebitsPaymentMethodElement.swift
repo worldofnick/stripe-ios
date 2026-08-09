@@ -391,7 +391,7 @@ private extension PaymentMethodIncentive {
         let formattedString = STPStringUtils.applyLinksToString(template: string, links: links)
 
         let style = NSMutableParagraphStyle()
-        style.alignment = .natural
+        style.alignment = .left
         formattedString.addAttributes(
             [
                 .paragraphStyle: style,
