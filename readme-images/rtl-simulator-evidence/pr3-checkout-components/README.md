@@ -18,15 +18,6 @@ app in Simulator. They are not XCTest or snapshot-test output.
 The native Financial Connections screens end before any bank-owned web view.
 Bank authentication web content was deliberately excluded from this audit.
 
-## Institution search
-
-Oracle: an active short-text search value follows the RTL interface alignment.
-Before, `Success` snaps to the left when entered. After, it remains right-aligned.
-
-| Before | After |
-| --- | --- |
-| ![Before: active institution search value is left-aligned](before-institution-search.jpg) | ![After: active institution search value is right-aligned](after-institution-search.jpg) |
-
 ## Phone field
 
 Oracle: phone data preserves its intrinsic LTR order while the surrounding UI is
