@@ -5,14 +5,15 @@ app in Simulator. They are not XCTest or snapshot-test output.
 
 | | Value |
 | --- | --- |
-| Before | `6db450719f7` (`codex/rtl-checkout-components`) |
-| After production code | `7382d1ba348` |
+| Before | `d3cf15cae52` (`codex/rtl-checkout-components`) |
+| After production code | `66cda096601` |
 | Simulator | iPhone 12 mini, iOS 18.0 (`79CA7DB2-0A4B-4EC4-B93C-D28E8C9458F1`) |
 | App | `com.stripe.PaymentSheet-Example` |
 | Launch | Normal launch with `-AppleTextDirection YES -NSForceRightToLeftWritingDirection YES`; no `UITesting` environment |
+| Capture | Native Simulator framebuffer via `xcrun simctl io … screenshot`; no desktop window, pointer, or overlay |
 | Xcode | 26.4.1 (17E202) |
-| Before `StripePaymentSheet` SHA-256 | `d1eec02fe77c65ad0e409638ed4a711c6579ca41f87523f472bfd07680714ed3` |
-| After `StripePaymentSheet` SHA-256 | `c4c630c98f9b68274db026eae42f00592189367c2fccb99bf5c660930acd29ec` |
+| Before `StripePaymentSheet` SHA-256 | `273096870ba4b24f55716a050f8399809252d571fb20844564e07c02d6d676d3` |
+| After `StripePaymentSheet` SHA-256 | `436b3769572f625c4fcfb45778ad27996eaeb6333d255141222233e3090d10f5` |
 
 ## Verification header
 
