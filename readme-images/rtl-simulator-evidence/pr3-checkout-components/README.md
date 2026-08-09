@@ -10,9 +10,10 @@ app in Simulator. They are not XCTest or snapshot-test output.
 | Simulator | iPhone 12 mini, iOS 18.0 (`79CA7DB2-0A4B-4EC4-B93C-D28E8C9458F1`) |
 | App | `com.stripe.PaymentSheet-Example` |
 | Launch | Normal launch with `-AppleTextDirection YES -NSForceRightToLeftWritingDirection YES`; no `UITesting` environment |
+| Capture | Native Simulator framebuffer via `xcrun simctl io … screenshot`; no desktop window, pointer, or overlay |
 | Xcode | 26.4.1 (17E202) |
-| Before executable SHA-256 | `adde0c26a0e3a36ae5389b6f0b4b2adf508f56183178ea11fb19b50daf8b322e` |
-| After executable SHA-256 | `fd8d1ff3142b280c924199ccfbd7ab3abcb957cb0f69861c665646b70549bdb9` |
+| Before `StripeFinancialConnections` SHA-256 | `c5209c32dc28ca224c9e401cf6bc5b3e8d31026c4be18badb75fe9d5edf5cb07` |
+| After `StripeFinancialConnections` SHA-256 | `a7d70fc0ac4c7e1c508d5ef7c7906780ff8625d11317ad3ee2771da1b9f012eb` |
 
 The native Financial Connections screens end before any bank-owned web view.
 Bank authentication web content was deliberately excluded from this audit.
@@ -39,7 +40,7 @@ formatted number form one contiguous LTR compound field on the leading side.
 ## Exit confirmation direction icon
 
 Oracle: the directional icon mirrors with the interface. Before, it points right.
-After, it points left. Both captures use the same verification-screen state.
+After, it points left. Both captures use the same institution-search state.
 
 | Before | After |
 | --- | --- |
