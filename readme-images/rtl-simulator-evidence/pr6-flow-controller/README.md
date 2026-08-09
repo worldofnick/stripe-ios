@@ -6,14 +6,15 @@ XCTest or snapshot-test output.
 
 | | Value |
 | --- | --- |
-| Before | `9e1e17a9de6` (`codex/rtl-customer-sheet`) |
-| After test coverage | `aebcf4426fd` |
+| Before | `1897470df10` (`codex/rtl-customer-sheet`) |
+| After test coverage | `dbd6510be5f` |
 | Simulator | iPhone 12 mini, iOS 18.0 (`79CA7DB2-0A4B-4EC4-B93C-D28E8C9458F1`) |
 | App | `com.stripe.PaymentSheet-Example` |
 | Launch | Normal launch with `-AppleTextDirection YES -NSForceRightToLeftWritingDirection YES`; no `UITesting` environment |
+| Capture | Native Simulator framebuffer via `xcrun simctl io … screenshot`; no desktop window, pointer, or overlay |
 | Xcode | 26.4.1 (17E202) |
-| Before `StripePaymentSheet` SHA-256 | `c4c630c98f9b68274db026eae42f00592189367c2fccb99bf5c660930acd29ec` |
-| After `StripePaymentSheet` SHA-256 | `c4c630c98f9b68274db026eae42f00592189367c2fccb99bf5c660930acd29ec` |
+| Before `StripePaymentSheet` SHA-256 | `436b3769572f625c4fcfb45778ad27996eaeb6333d255141222233e3090d10f5` |
+| After `StripePaymentSheet` SHA-256 | `436b3769572f625c4fcfb45778ad27996eaeb6333d255141222233e3090d10f5` |
 
 PR6 intentionally changes only tests and reference images. The byte-identical
 framework hashes above confirm that it does not modify production behavior. The
