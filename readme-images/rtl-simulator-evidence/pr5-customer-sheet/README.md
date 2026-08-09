@@ -6,14 +6,15 @@ snapshot-test output.
 
 | | Value |
 | --- | --- |
-| Before | `767895f2741` (`codex/rtl-link`) |
-| After test coverage | `d366f700d22` |
+| Before | `c5c7fbbb0b8` (`codex/rtl-link`) |
+| After test coverage | `91337d69daf` |
 | Simulator | iPhone 12 mini, iOS 18.0 (`79CA7DB2-0A4B-4EC4-B93C-D28E8C9458F1`) |
 | App | `com.stripe.PaymentSheet-Example` |
 | Launch | Normal launch with `-AppleTextDirection YES -NSForceRightToLeftWritingDirection YES`; no `UITesting` environment |
+| Capture | Native Simulator framebuffer via `xcrun simctl io … screenshot`; no desktop window, pointer, or overlay |
 | Xcode | 26.4.1 (17E202) |
-| Before `StripePaymentSheet` SHA-256 | `c4c630c98f9b68274db026eae42f00592189367c2fccb99bf5c660930acd29ec` |
-| After `StripePaymentSheet` SHA-256 | `c4c630c98f9b68274db026eae42f00592189367c2fccb99bf5c660930acd29ec` |
+| Before `StripePaymentSheet` SHA-256 | `436b3769572f625c4fcfb45778ad27996eaeb6333d255141222233e3090d10f5` |
+| After `StripePaymentSheet` SHA-256 | `436b3769572f625c4fcfb45778ad27996eaeb6333d255141222233e3090d10f5` |
 
 PR5 intentionally changes only tests and reference images. The byte-identical
 framework hashes above confirm that it does not modify production behavior. The
