@@ -5,18 +5,21 @@ app in Simulator. They are not XCTest or snapshot-test output.
 
 | | Value |
 | --- | --- |
-| Before | `4931a8cfc20271084946baa46714035c89437df9` (`codex/rtl-paymentsheet`) |
-| After production code | `0a05a62e258` |
+| Before | `96da13bed7e` (`codex/rtl-paymentsheet`) |
+| After production code | `0e111d858ce` |
 | Simulator | iPhone 12 mini, iOS 18.0 (`79CA7DB2-0A4B-4EC4-B93C-D28E8C9458F1`) |
 | App | `com.stripe.PaymentSheet-Example` |
 | Launch | Normal launch with `-AppleTextDirection YES -NSForceRightToLeftWritingDirection YES`; no `UITesting` environment |
 | Capture | Native Simulator framebuffer via `xcrun simctl io … screenshot`; no desktop window, pointer, or overlay |
 | Xcode | 26.4.1 (17E202) |
-| Before `StripeFinancialConnections` SHA-256 | `c5209c32dc28ca224c9e401cf6bc5b3e8d31026c4be18badb75fe9d5edf5cb07` |
-| After `StripeFinancialConnections` SHA-256 | `a7d70fc0ac4c7e1c508d5ef7c7906780ff8625d11317ad3ee2771da1b9f012eb` |
+| Before `StripeFinancialConnections` SHA-256 | `312a8b64dbd8c0ade27e3001d0b9e9049075402c55e464bb826f285658a1fa66` |
+| After `StripeFinancialConnections` SHA-256 | `5bb68b1bd23771bc75ed9a336e8176cf8cad67a05b2a312610d56e9dc4aad332` |
 
 The native Financial Connections screens end before any bank-owned web view.
 Bank authentication web content was deliberately excluded from this audit.
+Institution-search and account-holder-name screenshots are also excluded: they
+had identical before and after pixels, so their explicit RTL overrides were
+removed from the production diff.
 
 ## Phone field
 
