@@ -5,8 +5,8 @@ app in Simulator. They are not XCTest or snapshot-test output.
 
 | | Value |
 | --- | --- |
-| Before | `d3cf15cae52` (`codex/rtl-checkout-components`) |
-| After production code | `66cda096601` |
+| Before | `920f509cf0f` (`codex/rtl-checkout-components`) |
+| After production code | `cc0b75c5a3b` |
 | Simulator | iPhone 12 mini, iOS 18.0 (`79CA7DB2-0A4B-4EC4-B93C-D28E8C9458F1`) |
 | App | `com.stripe.PaymentSheet-Example` |
 | Launch | Normal launch with `-AppleTextDirection YES -NSForceRightToLeftWritingDirection YES`; no `UITesting` environment |
@@ -17,9 +17,10 @@ app in Simulator. They are not XCTest or snapshot-test output.
 
 ## Verification header
 
-Oracle: the Link logo occupies the RTL leading side and the close control occupies
-the trailing side. Before, the logo remains left and the close control is not
-visible. After, the logo is right and close is left.
+Oracle: Link verification already includes this close control in LTR. Before, its
+physical-right constraint collides with the RTL-leading logo, hiding the existing
+control and raising a broken-constraint diagnostic. After, the logo occupies the
+RTL leading side and the existing close control occupies the trailing side.
 
 | Before | After |
 | --- | --- |
