@@ -1,6 +1,6 @@
 # Native 3DS2 RTL Simulator evidence
 
-These screenshots compare current `master` (`1e451705aca`) with production commit `d7379d15286` on the existing iOS 18.0 iPhone 12 mini Simulator. Both builds were launched with:
+These screenshots compare current `master` (`24b2391ce6a`) with production commit `6df03703297` on the existing iOS 18.0 iPhone 12 mini Simulator. Both builds were launched with:
 
 ```text
 -AppleTextDirection YES -NSForceRightToLeftWritingDirection YES
