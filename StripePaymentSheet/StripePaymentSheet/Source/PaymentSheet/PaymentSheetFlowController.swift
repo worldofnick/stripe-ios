@@ -271,6 +271,8 @@ extension PaymentSheet {
         private var presentPaymentOptionsCompletionWithResult: ((Bool) -> Void)?
         private var selectionSnapshotBeforePresentation: FlowControllerSelectionSnapshot?
         private var didDismissLinkVerificationDialog: Bool = false
+        // The UI may have a valid default even after the accepted payment option was cleared.
+        private var isPaymentOptionCleared = false
 
         // If a WalletButtonsView is currently visible
         var walletButtonsViewState: WalletButtonsViewState = .hidden {
@@ -282,7 +284,7 @@ extension PaymentSheet {
 
         /// The desired, valid (ie passed client-side checks) payment option from the underlying payment options VC.
         var internalPaymentOption: PaymentOption? {
-            guard viewController.error == nil else {
+            guard !isPaymentOptionCleared, viewController.error == nil else {
                 return nil
             }
 
@@ -338,7 +340,7 @@ extension PaymentSheet {
         weak var checkout: CheckoutController?
         private var isPresented = false
         private var pendingPresentTask: Task<Void, Never>?
-        private(set) var didPresentAndContinue: Bool = false
+        private var didPresentAndContinue: Bool = false
         var confirmationChallenge: ConfirmationChallenge?
         let analyticsHelper: PaymentSheetAnalyticsHelper
         private var linkAccountObserver: LinkAccountContextObserver?
@@ -864,7 +866,8 @@ extension PaymentSheet {
                         analyticsHelper: analyticsHelper,
                         walletButtonsViewState: walletButtonsViewState,
                         checkoutBillingAddressUpdater: self.checkout,
-                        initialState: .preservingFormInput(from: self.internalPaymentOption)
+                        // Continue can synchronize billing before accepting a cleared option.
+                        initialState: .preservingFormInput(from: self.isPresented ? self.viewController.selectedPaymentOption : self.internalPaymentOption)
                     )
                     self.viewController.flowControllerDelegate = self
                     self.confirmationChallenge = confirmationChallenge
@@ -889,9 +892,32 @@ extension PaymentSheet {
                 loadResult: makeLoadResultWithCurrentSavedPaymentMethods(),
                 analyticsHelper: analyticsHelper,
                 walletButtonsViewState: self.walletButtonsViewState,
+                checkoutBillingAddressUpdater: checkout,
                 initialState: .preservingFormInput(from: internalPaymentOption)
             )
             self.viewController.flowControllerDelegate = self
+            updatePaymentOption()
+        }
+
+        /// Clears the accepted payment option and collected form input without changing saved payment methods.
+        /// Call only while payment UI is dismissed. The option stays nil until the customer continues from the sheet.
+        @MainActor
+        func clearPaymentOption() {
+            guard !isPresentingPaymentOptions else {
+                stpAssertionFailure("Cannot clear the payment option while payment UI is presented.")
+                return
+            }
+            isPaymentOptionCleared = true
+            didPresentAndContinue = false
+            viewController = Self.makeViewController(
+                configuration: configuration,
+                loadResult: makeLoadResultWithCurrentSavedPaymentMethods(),
+                analyticsHelper: analyticsHelper,
+                walletButtonsViewState: walletButtonsViewState,
+                checkoutBillingAddressUpdater: checkout,
+                initialState: .preservingFormInput(from: nil)
+            )
+            viewController.flowControllerDelegate = self
             updatePaymentOption()
         }
 
@@ -937,6 +963,7 @@ extension PaymentSheet {
                 ),
                 analyticsHelper: analyticsHelper,
                 walletButtonsViewState: walletButtonsViewState,
+                checkoutBillingAddressUpdater: checkout,
                 initialState: .restoringAfterCancellation(selection)
             )
             self.viewController.flowControllerDelegate = self
@@ -1053,6 +1080,11 @@ extension PaymentSheet.FlowController {
     var isPresentingPaymentUI: Bool {
         return isPresented
     }
+
+    /// Includes the loading sheet shown while pending Checkout operations finish.
+    var isPresentingPaymentOptions: Bool {
+        return isPresented || presentPaymentOptionsCompletionWithResult != nil
+    }
 }
 
 // MARK: - LoadingViewControllerDelegate
@@ -1082,6 +1114,7 @@ extension PaymentSheet.FlowController: FlowControllerViewControllerDelegate {
     ) {
         if !didCancel {
             self.didPresentAndContinue = true
+            self.isPaymentOptionCleared = false
         }
         flowControllerViewController.dismiss(animated: true) {
             if didCancel {

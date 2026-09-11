@@ -53,6 +53,80 @@ final class CheckoutPendingOperationsTests: XCTestCase {
         XCTAssertTrue(checkout.pendingOperations.isEmpty)
     }
 
+    func testClearPaymentOptionWaitsForPendingUpdateWithoutAutomaticTax() async throws {
+        await AddressSpecProvider.shared.loadAddressSpecs()
+        let checkout = try await CheckoutController(configuration: CheckoutTestHelpers.makeConfiguration())
+        let flowController = checkout.getPaymentElement().paymentSheetFlowController
+        flowController.viewController.linkConfirmOption = .withPaymentMethod(brand: .link, paymentMethod: ._testCard())
+        flowController.updatePaymentOption()
+        XCTAssertNotNil(checkout.session.paymentOption)
+
+        // Given a Checkout update is still in progress
+        let gate = CheckoutPendingOperationsTestGate()
+        var events: [String] = []
+        let update = Task { @MainActor in
+            try await checkout.enqueueSessionUpdate {
+                await gate.wait()
+                try await checkout.applySessionUpdate()
+                events.append("updated")
+            }
+        }
+        defer { gate.open() }
+        try await waitUntil { gate.isWaiting }
+
+        // When clearing is requested, it must wait for that update even without a tax request
+        let clear = Task { @MainActor in
+            try await checkout.clearPaymentOption()
+            events.append("cleared")
+        }
+        try await waitUntil { checkout.pendingOperations.count == 2 || events.contains("cleared") }
+        XCTAssertNotNil(flowController.paymentOption)
+
+        gate.open()
+        try await update.value
+        try await clear.value
+
+        // Then clearing wins over the preceding update and the queue drains
+        XCTAssertEqual(events, ["updated", "cleared"])
+        XCTAssertNil(checkout.session.paymentOption)
+        XCTAssertNil(flowController.internalPaymentOption)
+        XCTAssertTrue(checkout.pendingOperations.isEmpty)
+    }
+
+    func testLoadingPaymentOptionsRejectsClearButAllowsPendingUpdate() async throws {
+        await AddressSpecProvider.shared.loadAddressSpecs()
+        let checkout = try await CheckoutController(configuration: CheckoutTestHelpers.makeConfiguration())
+        let flowController = checkout.getPaymentElement().paymentSheetFlowController
+        let gate = CheckoutPendingOperationsTestGate()
+        let operation = Task { @MainActor in
+            try await checkout.enqueueSessionUpdate {
+                await gate.wait()
+                try await checkout.applySessionUpdate()
+            }
+        }
+        defer { gate.open() }
+        try await waitUntil { gate.isWaiting }
+
+        // When payment options are waiting for a queued session update
+        let closed = expectation(description: "Payment options close")
+        flowController.presentPaymentOptions(from: UIViewController()) { _ in closed.fulfill() }
+        do {
+            try await checkout.clearPaymentOption()
+            XCTFail("Expected clearing during presentation to throw")
+        } catch {
+            guard case .sheetCurrentlyPresented = error as? CheckoutError else {
+                return XCTFail("Expected .sheetCurrentlyPresented, got \(error)")
+            }
+        }
+
+        // Then the queued update can still finish and payment options can open
+        gate.open()
+        try await operation.value
+        try await waitUntil { flowController.isPresentingPaymentUI }
+        flowController.flowControllerViewControllerShouldClose(flowController.viewController, didCancel: true)
+        await fulfillment(of: [closed], timeout: 2)
+    }
+
     func testAwaitPendingOperationsWaitsForQueuedWork() async throws {
         let checkout = try await CheckoutController(configuration: CheckoutTestHelpers.makeConfiguration())
         let gate = CheckoutPendingOperationsTestGate()

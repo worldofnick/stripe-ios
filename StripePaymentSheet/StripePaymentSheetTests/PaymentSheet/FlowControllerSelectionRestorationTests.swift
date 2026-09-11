@@ -190,6 +190,98 @@ final class FlowControllerSelectionRestorationTests: XCTestCase {
         XCTAssertEqual(viewController.selectedPaymentOption?.paymentMethodType, .stripe(.card))
     }
 
+    func testClearedPaymentOptionStaysNilUntilContinue() {
+        for orientation in [PaymentSheet.PaymentMethodLayout.ResolvedLayout.horizontal, .vertical] {
+            // Given a selected saved card in either layout
+            let card = STPPaymentMethod._testCard(id: "pm_saved")
+            CustomerPaymentOption.setDefaultPaymentMethod(.stripeId(card.stripeId), forCustomer: nil)
+            let flowController = makeFlowController(savedPaymentMethods: [card], orientation: orientation)
+            XCTAssertEqual(flowController.paymentOption?.paymentMethodType, "card")
+
+            // When cleared repeatedly and rebuilt for a wallet configuration change
+            flowController.clearPaymentOption()
+            flowController.clearPaymentOption()
+            flowController.updateForWalletButtonsView()
+
+            // Then defaults cannot silently become confirmable again
+            XCTAssertNil(flowController.paymentOption)
+            XCTAssertNil(flowController.internalPaymentOption)
+            XCTAssertEqual(flowController.viewController.savedPaymentMethods.map(\.stripeId), ["pm_saved"])
+            XCTAssertEqual(CustomerPaymentOption.localDefaultPaymentMethod(for: nil), .stripeId("pm_saved"))
+            let confirmed = expectation(description: "Confirmation rejects a cleared option")
+            STPAssertTestUtil.shouldSuppressNextSTPAlert = true
+            flowController.confirm(from: UIViewController()) { result in
+                guard case .failed = result else {
+                    return XCTFail("Expected confirmation to reject a cleared option")
+                }
+                confirmed.fulfill()
+            }
+            wait(for: [confirmed], timeout: 2)
+
+            // ...and reopening and canceling keeps the option cleared
+            let canceled = present(flowController, expectedDidCancel: true)
+            flowController.flowControllerViewControllerShouldClose(flowController.viewController, didCancel: true)
+            wait(for: [canceled], timeout: 2)
+            XCTAssertNil(flowController.paymentOption)
+            XCTAssertNil(flowController.internalPaymentOption)
+
+            // ...but explicitly continuing accepts the displayed saved card
+            let continued = present(flowController, expectedDidCancel: false)
+            flowController.flowControllerViewControllerShouldClose(flowController.viewController, didCancel: false)
+            wait(for: [continued], timeout: 2)
+            XCTAssertEqual(savedPaymentMethodID(flowController.internalPaymentOption), "pm_saved")
+            XCTAssertEqual(flowController.paymentOption?.paymentMethodType, "card")
+        }
+    }
+
+    func testClearPaymentOptionDiscardsCompletedFormAndLinkDetails() {
+        for orientation in [PaymentSheet.PaymentMethodLayout.ResolvedLayout.horizontal, .vertical] {
+            var configuration = PaymentSheet.Configuration()
+            configuration.defaultBillingDetails.address.country = "US"
+            configuration.defaultBillingDetails.address.postalCode = "12345"
+            let params = IntentConfirmParams(params: ._testCardValue(), type: .stripe(.card))
+            params.setDefaultBillingDetailsIfNecessary(for: configuration)
+            for option in [PaymentOption.new(confirmParams: params), .link(option: .withPaymentMethod(brand: .link, paymentMethod: ._testCard()))] {
+                // Given completed card input or Link payment details
+                let flowController = makeFlowController(savedPaymentMethods: [], orientation: orientation)
+                flowController.viewController = PaymentSheet.FlowController.makeViewController(
+                    configuration: configuration,
+                    loadResult: flowController.viewController.loadResult,
+                    analyticsHelper: ._testValue(),
+                    walletButtonsViewState: .hidden,
+                    initialState: .restoringAfterCancellation(.init(paymentOption: option, formConfirmParams: params))
+                )
+                flowController.updatePaymentOption()
+                XCTAssertNotNil(flowController.paymentOption)
+
+                // When cleared, old form input and Link details are discarded
+                flowController.clearPaymentOption()
+                XCTAssertNil(flowController.paymentOption)
+                XCTAssertNil(flowController.internalPaymentOption)
+                XCTAssertNil(flowController.viewController.linkConfirmOption)
+                XCTAssertNil(flowController.viewController.selectedPaymentOption)
+            }
+        }
+    }
+
+    func testClearPaymentOptionOverridesApplePayDefault() {
+        for orientation in [PaymentSheet.PaymentMethodLayout.ResolvedLayout.horizontal, .vertical] {
+            // Given Apple Pay is the default payment option
+            let flowController = PaymentSheet.FlowController(
+                configuration: ._testValue_MostPermissive(isApplePayEnabled: true),
+                loadResult: makeLoadResult(orientation: orientation),
+                analyticsHelper: ._testValue()
+            )
+            XCTAssertEqual(flowController.paymentOption?.paymentMethodType, "apple_pay")
+
+            // When cleared, even a publication from the underlying default stays nil
+            flowController.clearPaymentOption()
+            flowController.updatePaymentOption()
+            XCTAssertNil(flowController.paymentOption)
+            XCTAssertNil(flowController.internalPaymentOption)
+        }
+    }
+
     private func makeFlowController(
         savedPaymentMethods: [STPPaymentMethod],
         orientation: PaymentSheet.PaymentMethodLayout.ResolvedLayout = .vertical

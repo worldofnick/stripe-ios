@@ -280,6 +280,10 @@ public final class EmbeddedPaymentElement {
                 previousSelectedRowChangeButtonState: shouldSelectPreviousRow ? previousSelectedRowChangeButtonState : nil,
                 delegate: self
             )
+            // A cleared selection must not be replaced by a customer default during an update.
+            if previousSelectedRowType == nil {
+                self.embeddedPaymentMethodsView.resetSelection()
+            }
             // Keep the rebuilt view loading while the billing sync finishes.
             if self.pendingBillingAddressSyncSelection != nil {
                 self.embeddedPaymentMethodsView.isUserInteractionEnabled = false

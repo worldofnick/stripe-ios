@@ -214,8 +214,21 @@ public final class CheckoutController: ObservableObject {
     // MARK: - Payment Option
 
     /// Clears the currently selected payment option.
+    /// - Throws: ``CheckoutError/sheetCurrentlyPresented`` if payment UI is open, or an error if updating tax fails.
     public func clearPaymentOption() async throws {
-        try await paymentElement?.clearPaymentOption()
+        func requirePaymentUIClosed() throws {
+            try requireSheetNotPresented()
+            guard paymentElement?.paymentSheetFlowController.isPresentingPaymentOptions != true else {
+                throw CheckoutError.sheetCurrentlyPresented
+            }
+        }
+        try requirePaymentUIClosed()
+        try await updateBillingTaxRegionIfNecessary(address: nil)
+        try await enqueueSessionUpdate {
+            try requirePaymentUIClosed()
+            self.paymentElement?.clearPaymentOption()
+            self.dangerouslySetPaymentOptionDirectly(nil)
+        }
     }
 
     // MARK: - Addresses

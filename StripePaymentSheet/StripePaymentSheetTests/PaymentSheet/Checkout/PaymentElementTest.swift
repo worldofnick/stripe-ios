@@ -5,6 +5,7 @@
 //  Created by Yuki Tokuhiro on 7/15/26.
 //
 
+import Combine
 import OHHTTPStubs
 @testable @_spi(STP) import StripeCore
 @testable @_spi(STP) import StripeCoreTestUtils
@@ -277,11 +278,31 @@ final class PaymentElementTest: XCTestCase {
         let (configuration, requestRecorder) = try stubAutomaticTaxSavedCardCheckout()
         let checkout = try await CheckoutController(configuration: configuration)
         let embeddedPaymentElement = checkout.getPaymentElement().embeddedPaymentElement
+        let flowController = checkout.getPaymentElement().paymentSheetFlowController
         XCTAssertNotNil(checkout.session.paymentOption)
         XCTAssertNotNil(embeddedPaymentElement.paymentOption)
+        XCTAssertNotNil(flowController.paymentOption)
+
+        // ...and the customer has already accepted the card in the sheet
+        let continued = expectation(description: "Payment options closed")
+        flowController.presentPaymentOptions(from: UIViewController()) { _ in continued.fulfill() }
+        flowController.flowControllerViewControllerShouldClose(flowController.viewController, didCancel: false)
+        await fulfillment(of: [continued], timeout: 2)
+
+        // Observers must see both payment surfaces cleared when Checkout publishes nil.
+        var didPublishClearedOption = false
+        let observer = checkout.$session.dropFirst().sink { session in
+            guard session.paymentOption == nil else { return }
+            didPublishClearedOption = true
+            XCTAssertNil(embeddedPaymentElement.paymentOption)
+            XCTAssertNil(flowController.paymentOption)
+            XCTAssertNil(flowController.internalPaymentOption)
+        }
+        defer { observer.cancel() }
 
         // When the payment option is cleared
         try await checkout.clearPaymentOption()
+        XCTAssertTrue(didPublishClearedOption)
 
         // Then Checkout recalculates tax with only the previous country and clears the selection
         let requests = requestRecorder.requests
@@ -295,6 +316,15 @@ final class PaymentElementTest: XCTestCase {
         XCTAssertNil(updateRequest.params["tax_region[postal_code]"])
         XCTAssertNil(checkout.session.paymentOption)
         XCTAssertNil(embeddedPaymentElement.paymentOption)
+        XCTAssertNil(flowController.paymentOption)
+        XCTAssertNil(flowController.internalPaymentOption)
+
+        // ...and a later session update cannot restore the cleared default
+        try await checkout.commitSession(nil)
+        XCTAssertNil(checkout.session.paymentOption)
+        XCTAssertNil(flowController.paymentOption)
+        XCTAssertNil(embeddedPaymentElement.paymentOption)
+        XCTAssertTrue(flowController.viewController.checkoutBillingAddressUpdater === checkout)
     }
 
     func testClearPaymentOptionPreservesSelectionWhenTaxUpdateFails() async throws {
@@ -305,6 +335,8 @@ final class PaymentElementTest: XCTestCase {
         let embeddedPaymentElement = checkout.getPaymentElement().embeddedPaymentElement
         let selectedPaymentOption = try XCTUnwrap(checkout.session.paymentOption)
         let selectedEmbeddedPaymentOption = try XCTUnwrap(embeddedPaymentElement.paymentOption)
+        let flowController = checkout.getPaymentElement().paymentSheetFlowController
+        let selectedFlowControllerPaymentOption = try XCTUnwrap(flowController.paymentOption)
 
         // When the payment option is cleared
         do {
@@ -319,6 +351,84 @@ final class PaymentElementTest: XCTestCase {
         // Then the selection remains available for the merchant to recover
         XCTAssertEqual(checkout.session.paymentOption, selectedPaymentOption)
         XCTAssertEqual(embeddedPaymentElement.paymentOption, selectedEmbeddedPaymentOption)
+        XCTAssertEqual(flowController.paymentOption?.label, selectedFlowControllerPaymentOption.label)
+        XCTAssertNotNil(flowController.internalPaymentOption)
+    }
+
+    func testClearPaymentOptionRejectsPresentedSheetWithoutAutomaticTax() async throws {
+        let checkout = try await CheckoutController(configuration: CheckoutTestHelpers.makeConfiguration())
+        let flowController = checkout.getPaymentElement().paymentSheetFlowController
+        let closed = expectation(description: "Payment options closed")
+        flowController.presentPaymentOptions(from: UIViewController()) { _ in closed.fulfill() }
+
+        do {
+            try await checkout.clearPaymentOption()
+            XCTFail("Expected clearing while the sheet is presented to throw")
+        } catch {
+            guard case .sheetCurrentlyPresented = error as? CheckoutError else {
+                return XCTFail("Expected .sheetCurrentlyPresented, got \(error)")
+            }
+        }
+
+        flowController.flowControllerViewControllerShouldClose(flowController.viewController, didCancel: true)
+        await fulfillment(of: [closed], timeout: 2)
+    }
+
+    func testContinueAfterClearingPreservesNewCardThroughBillingSync() async throws {
+        for layout in [PaymentSheet.PaymentMethodLayout.horizontal, .vertical] {
+            // Given a cleared payment option and a newly completed card form
+            let (stubConfiguration, requestRecorder) = try stubAutomaticTaxSavedCardCheckout()
+            var configuration = stubConfiguration
+            var paymentElementConfiguration = PaymentElement.Configuration()
+            paymentElementConfiguration.paymentMethodLayout = layout
+            configuration.paymentElement = paymentElementConfiguration
+            let checkout = try await CheckoutController(configuration: configuration)
+            try await checkout.clearPaymentOption()
+            let flowController = checkout.getPaymentElement().paymentSheetFlowController
+            let params = IntentConfirmParams(params: ._testCardValue(), type: .stripe(.card))
+            params.paymentMethodParams.card?.number = "5555555555554444"
+            let billingDetails = STPPaymentMethodBillingDetails()
+            billingDetails.name = "New Customer"
+            billingDetails.email = "new@example.com"
+            billingDetails.phone = "+15555555555"
+            billingDetails.address = STPPaymentMethodAddress()
+            billingDetails.address?.country = "US"
+            billingDetails.address?.line1 = "123 Main St"
+            billingDetails.address?.city = "San Francisco"
+            billingDetails.address?.state = "CA"
+            billingDetails.address?.postalCode = "94105"
+            params.paymentMethodParams.billingDetails = billingDetails
+            flowController.viewController = PaymentSheet.FlowController.makeViewController(
+                configuration: flowController.configuration,
+                loadResult: flowController.viewController.loadResult,
+                analyticsHelper: ._testValue(),
+                walletButtonsViewState: .hidden,
+                checkoutBillingAddressUpdater: checkout,
+                initialState: .preservingFormInput(from: .new(confirmParams: params))
+            )
+            flowController.viewController.flowControllerDelegate = flowController
+            flowController.viewController.loadViewIfNeeded()
+            XCTAssertEqual(flowController.viewController.selectedPaymentOption?.newConfirmParams?.paymentMethodParams.card?.number, "5555555555554444")
+            let closed = expectation(description: "Continue finishes billing synchronization")
+            flowController.presentPaymentOptions(from: UIViewController()) { didCancel in
+                XCTAssertFalse(didCancel)
+                closed.fulfill()
+            }
+
+            // When the real Continue handler updates automatic tax before dismissing
+            if let horizontal = flowController.viewController as? PaymentSheetFlowControllerViewController {
+                horizontal.perform(NSSelectorFromString("didTapContinueButton"))
+            } else {
+                let vertical = try XCTUnwrap(flowController.viewController as? PaymentSheetVerticalViewController)
+                vertical.didTapPrimaryButton()
+            }
+            await fulfillment(of: [closed], timeout: 5)
+
+            // Then the new card survives that update and becomes the accepted option
+            XCTAssertEqual(requestRecorder.requests.last?.params["tax_region[postal_code]"], "94105")
+            XCTAssertEqual(checkout.session.paymentOption?.label, "•••• 4444")
+            XCTAssertEqual(flowController.internalPaymentOption?.newConfirmParams?.paymentMethodParams.card?.number, "5555555555554444")
+        }
     }
 
     func testCheckoutSessionUpdatePreservesFlowControllerPaymentOption() async throws {

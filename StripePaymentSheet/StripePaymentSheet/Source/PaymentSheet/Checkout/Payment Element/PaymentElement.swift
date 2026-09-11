@@ -196,18 +196,15 @@ extension PaymentElement {
         checkout.dangerouslySetPaymentOptionDirectly(paymentOption)
     }
 
-    func clearPaymentOption() async throws {
-        guard !paymentSheetFlowController.didPresentAndContinue else {
-            assertionFailure("Clearing the payment option after presenting PaymentElement is not implemented. File a feature request if you need this.")
-            return
+    /// Clears both payment surfaces without forwarding intermediate changes to Checkout.
+    func clearPaymentOption() {
+        isSuppressingPaymentOptionUpdates = true
+        defer {
+            isSuppressingPaymentOptionUpdates = false
         }
-        guard let checkout else {
-            stpAssertionFailure("PaymentElement unexpectedly lost its CheckoutController.")
-            return
-        }
-        try await checkout.updateBillingTaxRegionIfNecessary(address: nil)
-        checkout.dangerouslySetPaymentOptionDirectly(nil)
+        paymentSheetFlowController.clearPaymentOption()
         embeddedPaymentElement.clearPaymentOption()
+        paymentOptionSourceOfTruthIsFlowController = true
     }
 }
 
