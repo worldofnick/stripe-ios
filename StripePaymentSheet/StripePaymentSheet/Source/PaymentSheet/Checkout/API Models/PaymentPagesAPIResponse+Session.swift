@@ -26,7 +26,7 @@ extension PaymentPagesAPIResponse {
             from: checkoutItems,
             locale: .autoupdatingCurrent
         )
-        let publicTotals = Self.makeTotals(from: checkoutItems, currency: currency)
+        let publicTotals = Self.makeTotals(from: checkoutItems, totalSummary: totalSummary, currency: currency)
         let publicTax = Self.makeTax(taxMeta: taxMeta, taxContext: taxContext)
         let localizedPricesMetas = Self.makeLocalizedPricesMetas(from: adaptivePricingInfo)
         let exchangeRateMeta = Self.makeExchangeRateMeta(from: adaptivePricingInfo)
@@ -225,6 +225,7 @@ extension PaymentPagesAPIResponse {
 
     private static func makeTotals(
         from checkoutItems: [CheckoutItem],
+        totalSummary: TotalSummary?,
         currency: String
     ) -> CheckoutController.Session.Totals {
         var subtotal = 0
@@ -239,13 +240,15 @@ extension PaymentPagesAPIResponse {
                 total += item.total
             }
         }
+        // Localized line items can round independently of the session total.
+        // Prefer the server's aggregates when present, retaining support for responses without them.
         return CheckoutController.Session.Totals(
-            subtotal: makeAmount(subtotal, currency: currency),
+            subtotal: makeAmount(totalSummary?.subtotal ?? subtotal, currency: currency),
             taxExclusive: makeAmount(taxExclusive, currency: currency),
             taxInclusive: makeAmount(taxInclusive, currency: currency),
             // Discounts are not currently supported in unified mode.
             discount: makeAmount(0, currency: currency),
-            total: makeAmount(total, currency: currency)
+            total: makeAmount(totalSummary?.total ?? total, currency: currency)
         )
     }
 

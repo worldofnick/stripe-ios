@@ -749,6 +749,54 @@ class PaymentPagesAPIResponseTest: XCTestCase {
         XCTAssertEqual(secondAmountDetails.taxAmounts?.first?.displayName, "VAT")
     }
 
+    func testTotalsUseServerAggregatesAfterCurrencyConversion() {
+        // Given rounded JPY line amounts whose sum differs from the session-level conversion
+        let response = CheckoutTestHelpers.makeSession([
+            "currency": "jpy",
+            "checkout_items": [
+                makeOneTimePriceCheckoutItem(key: "shirt", subtotal: 11180, taxExclusive: 0, taxInclusive: 0, total: 11180, currency: "jpy"),
+                makeOneTimePriceCheckoutItem(key: "hoodie", subtotal: 7987, taxExclusive: 0, taxInclusive: 0, total: 7987, currency: "jpy"),
+            ],
+            "total_summary": ["subtotal": 19168, "total": 19168, "due": 19168],
+            "adaptive_pricing_info": [
+                "integration_currency": "usd",
+                "integration_amount": 12001,
+                "active_presentment_currency": "jpy",
+                "local_currency_options": [
+                    ["currency": "jpy", "amount": 19168, "presentment_exchange_rate": "159.720023", "conversion_markup_bps": 400],
+                ],
+            ],
+        ])
+
+        // When converting the response to the public session
+        let session = response.makePublicSession()
+
+        // Then the cart and confirmation use the same server total as the currency selector
+        XCTAssertEqual(session.totals.subtotal.minorUnitsAmount, 19168)
+        XCTAssertEqual(session.totals.total.minorUnitsAmount, 19168)
+        XCTAssertEqual(session.amount, 19168)
+        XCTAssertEqual(session.localizedPricesMetas.first(where: { $0.currency == "jpy" })?.total, 19168)
+    }
+
+    func testTotalsUseServerAggregatesWithTax() {
+        // Given a server subtotal and total that include aggregate rounding
+        let response = CheckoutTestHelpers.makeSession([
+            "checkout_items": [
+                makeOneTimePriceCheckoutItem(key: "item", subtotal: 1000, taxExclusive: 100, taxInclusive: 40, total: 1100),
+            ],
+            "total_summary": ["subtotal": 1001, "total": 1101, "due": 1101],
+        ])
+
+        // When converting the response to the public session
+        let session = response.makePublicSession()
+
+        // Then server aggregates are retained without changing the tax breakdown
+        XCTAssertEqual(session.totals.subtotal.minorUnitsAmount, 1001)
+        XCTAssertEqual(session.totals.total.minorUnitsAmount, 1101)
+        XCTAssertEqual(session.totals.taxExclusive.minorUnitsAmount, 100)
+        XCTAssertEqual(session.totals.taxInclusive.minorUnitsAmount, 40)
+    }
+
     func testTotalsSumOneTimePriceItems() {
         let session = CheckoutTestHelpers.makeSession([
             "checkout_items": [
@@ -1372,9 +1420,10 @@ class PaymentPagesAPIResponseTest: XCTestCase {
         subtotal: Int,
         taxExclusive: Int,
         taxInclusive: Int,
-        total: Int
+        total: Int,
+        currency: String = "usd"
     ) -> [String: Any] {
-        var checkoutItem = CheckoutTestHelpers.makeOneTimePriceCheckoutItems()[0]
+        var checkoutItem = CheckoutTestHelpers.makeOneTimePriceCheckoutItems(currency: currency)[0]
         checkoutItem["key"] = key
         var oneTimePrice = checkoutItem["one_time_price"] as! [String: Any]
         var item = (oneTimePrice["items"] as! [[String: Any]])[0]

@@ -25,6 +25,7 @@ struct PaymentPagesAPIResponse: UnknownFieldsDecodable, CustomStringConvertible 
     let setupIntent: STPSetupIntent?
     let currency: String
     let checkoutItems: [CheckoutItem]
+    let totalSummary: TotalSummary?
     let livemode: Bool
     let status: CheckoutController.Session.Status
     let paymentStatus: CheckoutController.Session.Status.PaymentStatus
@@ -82,6 +83,7 @@ struct PaymentPagesAPIResponse: UnknownFieldsDecodable, CustomStringConvertible 
         case setupIntent
         case currency
         case checkoutItems
+        case totalSummary
         case livemode
         case mode
         case status
@@ -140,6 +142,7 @@ struct PaymentPagesAPIResponse: UnknownFieldsDecodable, CustomStringConvertible 
             throw decoder.dataCorrupted("Every Checkout item currency must match currency")
         }
         checkoutItems = decodedCheckoutItems
+        totalSummary = try container.decodeIfPresent(TotalSummary.self, forKey: .totalSummary)
 
         livemode = try container.decode(Bool.self, forKey: .livemode)
         let decodedPaymentStatus = try container.decode(String.self, forKey: .paymentStatus)
@@ -267,6 +270,11 @@ extension PaymentPagesAPIResponse {
 // MARK: - API-shaped nested models
 
 extension PaymentPagesAPIResponse {
+    struct TotalSummary: Decodable {
+        let subtotal: Int
+        let total: Int
+    }
+
     struct CheckoutItem: Decodable {
         let key: String
         let oneTimePrice: OneTimePrice
