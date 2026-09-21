@@ -230,13 +230,9 @@ final class TwoOptionSelectorView: UIView {
         indicatorLeftConstraint?.isActive = false
         indicatorRightConstraint?.isActive = false
 
-        if isLeftSelected {
-            indicatorLeftConstraint = selectionIndicatorView.leftAnchor.constraint(equalTo: leftButton.leftAnchor)
-            indicatorRightConstraint = selectionIndicatorView.rightAnchor.constraint(equalTo: leftButton.rightAnchor)
-        } else {
-            indicatorLeftConstraint = selectionIndicatorView.leftAnchor.constraint(equalTo: rightButton.leftAnchor)
-            indicatorRightConstraint = selectionIndicatorView.rightAnchor.constraint(equalTo: rightButton.rightAnchor)
-        }
+        let selectedButton = isLeftSelected ? leftButton : rightButton
+        indicatorLeftConstraint = selectionIndicatorView.leftAnchor.constraint(equalTo: selectedButton.leftAnchor)
+        indicatorRightConstraint = selectionIndicatorView.rightAnchor.constraint(equalTo: selectedButton.rightAnchor)
 
         indicatorLeftConstraint?.isActive = true
         indicatorRightConstraint?.isActive = true
@@ -301,10 +297,13 @@ final class TwoOptionSelectorView: UIView {
             selectionFeedback.prepare()
         }
         // Pan translation excludes the recognition dead zone; measure from the original touch instead.
-        let translationX = gesture.location(in: buttonsStackView).x - dragStartLocationX
+        let locationX = gesture.location(in: buttonsStackView).x
+        let translationX = locationX - dragStartLocationX
         // Keep the pill attached to the finger; selection distance is independent of its movement.
         let proposedCenterX = dragStartCenterX + translationX
-        let centerX = min(max(proposedCenterX, min(leftButton.center.x, rightButton.center.x)), max(leftButton.center.x, rightButton.center.x))
+        let minCenterX = min(leftButton.center.x, rightButton.center.x)
+        let maxCenterX = max(leftButton.center.x, rightButton.center.x)
+        let centerX = min(max(proposedCenterX, minCenterX), maxCenterX)
         // A deliberate swipe from the selected option works regardless of control width or grab position.
         // Moving back within the threshold restores ordinary finger-based scrubbing.
         let selectedButton = selectedItemId == leftItem.id ? leftButton : rightButton
@@ -312,9 +311,9 @@ final class TwoOptionSelectorView: UIView {
         let startedOnSelection = abs(dragStartLocationX - selectedButton.center.x) < abs(dragStartLocationX - otherButton.center.x)
         let selectionX: CGFloat
         if startedOnSelection && abs(translationX) >= Self.swipeDistance {
-            selectionX = translationX > 0 ? max(leftButton.center.x, rightButton.center.x) : min(leftButton.center.x, rightButton.center.x)
+            selectionX = translationX > 0 ? maxCenterX : minCenterX
         } else {
-            selectionX = gesture.location(in: buttonsStackView).x
+            selectionX = locationX
         }
         let isLeftClosest = abs(selectionX - leftButton.center.x) < abs(selectionX - rightButton.center.x)
         let itemId = isLeftClosest ? leftItem.id : rightItem.id
