@@ -49,6 +49,20 @@ public extension PaymentSheet {
             _ confirmationToken: STPConfirmationToken
         ) async throws -> String
 
+        /// Called with payment details. Return the intent's client secret and optional confirmation credentials.
+        /// Collection still uses `Configuration.apiClient`. When changing accounts, clone and attach the
+        /// selected payment method to the destination intent on your server before returning.
+        public typealias ConfirmHandlerWithPaymentMethod = (
+            _ paymentMethod: STPPaymentMethod,
+            _ shouldSavePaymentMethod: Bool
+        ) async throws -> ConfirmationResult
+
+        /// Called with a confirmation token. When changing credentials, confirm the intent on your
+        /// server before returning: confirmation tokens cannot be reused across accounts.
+        public typealias ConfirmHandlerWithConfirmationToken = (
+            _ confirmationToken: STPConfirmationToken
+        ) async throws -> ConfirmationResult
+
         /// Called when the payment is confirmed in a shared payment token session.
         /// Returns `paymentMethod` and `shippingAddress` info, which can be passed to the backend for confirmation.
         @_spi(SharedPaymentToken) public typealias PreparePaymentMethodHandler = (
@@ -152,6 +166,46 @@ public extension PaymentSheet {
             }
             validate()
         }
+
+        /// Creates a deferred configuration whose handler can select credentials for confirmation.
+        /// See `ConfirmHandlerWithPaymentMethod` and `ConfirmationResult` for account switching requirements.
+        @_disfavoredOverload
+        public init(mode: Mode,
+                    paymentMethodTypes: [String]? = nil,
+                    onBehalfOf: String? = nil,
+                    paymentMethodConfigurationId: String? = nil,
+                    confirmHandlerWithPaymentMethod: @escaping ConfirmHandlerWithPaymentMethod,
+                    requireCVCRecollection: Bool = false) {
+            self.init(mode: mode, paymentMethodTypes: paymentMethodTypes, onBehalfOf: onBehalfOf,
+                      paymentMethodConfigurationId: paymentMethodConfigurationId,
+                      confirmHandler: { _, _ in "" }, requireCVCRecollection: requireCVCRecollection)
+            self.confirmHandler = nil
+            self.confirmHandlerWithPaymentMethod = confirmHandlerWithPaymentMethod
+        }
+
+        /// Creates a deferred configuration whose token handler can select credentials for next actions.
+        /// When changing credentials, your server must confirm the intent before returning.
+        @_disfavoredOverload
+        public init(mode: Mode,
+                    paymentMethodTypes: [String]? = nil,
+                    onBehalfOf: String? = nil,
+                    paymentMethodConfigurationId: String? = nil,
+                    confirmHandlerWithConfirmationToken: @escaping ConfirmHandlerWithConfirmationToken,
+                    requireCVCRecollection: Bool = false) {
+            self.init(mode: mode, paymentMethodTypes: paymentMethodTypes, onBehalfOf: onBehalfOf,
+                      paymentMethodConfigurationId: paymentMethodConfigurationId,
+                      confirmHandler: { _, _ in "" }, requireCVCRecollection: requireCVCRecollection)
+            self.confirmHandler = nil
+            self.confirmHandlerWithConfirmationToken = confirmHandlerWithConfirmationToken
+        }
+
+        /// A payment method handler that can return credentials scoped to this confirmation attempt.
+        /// Takes precedence over `confirmHandler` when set.
+        public var confirmHandlerWithPaymentMethod: ConfirmHandlerWithPaymentMethod?
+
+        /// A confirmation token handler that can return credentials scoped to this confirmation attempt.
+        /// Takes precedence over the other confirmation handlers when set.
+        public var confirmHandlerWithConfirmationToken: ConfirmHandlerWithConfirmationToken?
 
         /// Information about the payment (PaymentIntent) or setup (SetupIntent).
         public var mode: Mode {

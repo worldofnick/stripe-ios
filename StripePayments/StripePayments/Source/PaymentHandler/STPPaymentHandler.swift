@@ -168,7 +168,7 @@ public class STPPaymentHandler: NSObject {
     @objc public var simulateAppToAppRedirect: Bool
     {
         get {
-            _simulateAppToAppRedirect && STPAPIClient.shared.isTestmode
+            _simulateAppToAppRedirect && apiClient.isTestmode
         }
         set {
             _simulateAppToAppRedirect = newValue
@@ -375,6 +375,24 @@ public class STPPaymentHandler: NSObject {
         self.subhandler = subhandler
     }
     private var subhandler: STPPaymentHandler?
+
+    /// Runs one confirmation with an isolated client while keeping cancellation attached to this handler.
+    @_spi(STP) @MainActor public func withAPIClient<T>(
+        _ apiClient: STPAPIClient,
+        operation: (STPPaymentHandler) async throws -> T
+    ) async throws -> T {
+        guard apiClient !== self.apiClient else { return try await operation(self) }
+        guard subhandler == nil && !isInProgress else {
+            throw _error(for: .noConcurrentActionsErrorCode)
+        }
+        let handler = STPPaymentHandler(apiClient: apiClient, threeDSCustomizationSettings: threeDSCustomizationSettings)
+        handler._simulateAppToAppRedirect = _simulateAppToAppRedirect
+        handler._redirectShim = _redirectShim
+        handler.analyticsClient = analyticsClient
+        subhandler = handler
+        defer { subhandler = nil }
+        return try await operation(handler)
+    }
 
     /// Handles any `nextAction` required to authenticate the PaymentIntent.
     /// Call this method if you are using server-side confirmation.
@@ -2504,6 +2522,7 @@ extension STPPaymentHandler: SFSafariViewControllerDelegate {
 @_spi(STP) extension STPPaymentHandler: STPURLCallbackListener {
     /// :nodoc:
     @_spi(STP) public func handleURLCallback(_ url: URL) -> Bool {
+        if let subhandler { return subhandler.handleURLCallback(url) }
         if currentAction?.nextAction()?.redirectToURL?.useWebAuthSession ?? false {
             // Don't handle the URL — If a user clicks the URL in ASWebAuthenticationSession, ASWebAuthenticationSession will handle it internally.
             // If we're returning from another app via a URL while ASWebAuthenticationSession is open, it's likely that the PM initiated a redirect to another app
@@ -2748,6 +2767,10 @@ extension STPPaymentHandler {
     }
 
     @_spi(STP) public func cancel3DS2ChallengeFlow() {
+        if let subhandler {
+            subhandler.cancel3DS2ChallengeFlow()
+            return
+        }
         guard let currentAction else {
             stpAssertionFailure("Calling cancel3DS2ChallengeFlow without currentAction.")
             let errorAnalytic = ErrorAnalytic(event: .unexpectedPaymentHandlerError, error: InternalError.invalidState, additionalNonPIIParams: ["error_message": "Calling cancel3DS2ChallengeFlow without currentAction."])

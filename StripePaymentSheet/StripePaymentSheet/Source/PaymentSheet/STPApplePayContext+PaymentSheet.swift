@@ -113,7 +113,7 @@ private class ApplePayContextClosureDelegate: NSObject, ApplePayContextDelegate 
             }
 
             // Route to confirmation token flow or payment method flow based on available handlers
-            if let confirmationTokenConfirmHandler = intentConfig.confirmationTokenConfirmHandler {
+            if let confirmationTokenConfirmHandler = intentConfig.resolvedConfirmationTokenConfirmHandler {
                 // Confirmation token flow
                 return try await handleConfirmationTokenFlow(
                     intentConfig: intentConfig,
@@ -122,14 +122,11 @@ private class ApplePayContextClosureDelegate: NSObject, ApplePayContextDelegate 
                     context: context,
                     confirmationTokenConfirmHandler: confirmationTokenConfirmHandler
                 )
-            } else if let confirmHandler = intentConfig.confirmHandler {
+            } else if let confirmHandler = intentConfig.resolvedPaymentMethodConfirmHandler {
                 // PaymentMethod-based deferred intent flow
                 let shouldSavePaymentMethod = false // Apple Pay doesn't present the customer the choice to choose to save their payment method
-                let clientSecret = try await confirmHandler(stpPaymentMethod, shouldSavePaymentMethod)
-                guard clientSecret != PaymentSheet.IntentConfiguration.COMPLETE_WITHOUT_CONFIRMING_INTENT else {
-                    return STPApplePayContext.COMPLETE_WITHOUT_CONFIRMING_INTENT
-                }
-                return clientSecret
+                let result = try await confirmHandler(stpPaymentMethod, shouldSavePaymentMethod)
+                return try await result.prepareApplePayConfirmation(context: context, mode: intentConfig.mode, paymentMethod: stpPaymentMethod)
             } else {
                 // Neither handler is available
                 throw PaymentSheetError.integrationError(nonPIIDebugDescription: "No confirm handler available in IntentConfiguration")
@@ -142,7 +139,7 @@ private class ApplePayContextClosureDelegate: NSObject, ApplePayContextDelegate 
         paymentMethod: STPPaymentMethod,
         paymentInformation: PKPayment,
         context: STPApplePayContext,
-        confirmationTokenConfirmHandler: @escaping PaymentSheet.IntentConfiguration.ConfirmationTokenConfirmHandler
+        confirmationTokenConfirmHandler: @escaping PaymentSheet.IntentConfiguration.ConfirmHandlerWithConfirmationToken
     ) async throws -> String {
         // Create confirmation token params
         let confirmationTokenParams = STPConfirmationTokenParams()
@@ -175,13 +172,8 @@ private class ApplePayContextClosureDelegate: NSObject, ApplePayContextDelegate 
         )
 
         // Call the confirmation token handler
-        let clientSecret = try await confirmationTokenConfirmHandler(confirmationToken)
-
-        // Handle case where payment is processed off Stripe
-        guard clientSecret != PaymentSheet.IntentConfiguration.COMPLETE_WITHOUT_CONFIRMING_INTENT else {
-            return STPApplePayContext.COMPLETE_WITHOUT_CONFIRMING_INTENT
-        }
-        return clientSecret
+        let result = try await confirmationTokenConfirmHandler(confirmationToken)
+        return try await result.prepareApplePayConfirmation(context: context, mode: intentConfig.mode, paymentMethod: nil)
     }
 
     /// Handles Apple Pay confirmation for CheckoutSession by calling the confirm API with the payment method.

@@ -24,7 +24,7 @@ extension PaymentSheet {
         isFromLink: Bool = false
     ) async -> (result: PaymentSheetResult, deferredIntentConfirmationType: STPAnalyticsClient.DeferredIntentConfirmationType?) {
         // Route based on which handler is available in the intent configuration
-        if let confirmationTokenConfirmHandler = intentConfig.confirmationTokenConfirmHandler {
+        if intentConfig.resolvedConfirmationTokenConfirmHandler != nil {
             guard let elementsSession else {
                 stpAssertionFailure("Unexpected nil elementsSession when handling deferred intent confirmation with confirmation token flow")
                 return (.failed(error: PaymentSheetError.unknown(debugDescription: "Missing elementsSession for confirmation token flow")), nil)
@@ -39,10 +39,9 @@ extension PaymentSheet {
                 isFlowController: isFlowController,
                 allowsSetAsDefaultPM: allowsSetAsDefaultPM,
                 elementsSession: elementsSession,
-                confirmHandler: confirmationTokenConfirmHandler,
                 isFromLink: isFromLink
             )
-        } else if let confirmHandler = intentConfig.confirmHandler {
+        } else if let confirmHandler = intentConfig.resolvedPaymentMethodConfirmHandler {
             // Use regular confirmation flow
             return await handleDeferredIntentConfirmation(
                 confirmType: confirmType,
@@ -69,7 +68,7 @@ extension PaymentSheet {
         paymentHandler: STPPaymentHandler,
         isFlowController: Bool,
         allowsSetAsDefaultPM: Bool = false,
-        confirmHandler: @escaping IntentConfiguration.ConfirmHandler
+        confirmHandler: @escaping IntentConfiguration.ConfirmHandlerWithPaymentMethod
     ) async -> (result: PaymentSheetResult, deferredIntentConfirmationType: STPAnalyticsClient.DeferredIntentConfirmationType?) {
         do {
             var confirmType = confirmType
@@ -130,111 +129,132 @@ extension PaymentSheet {
                 return getShouldSavePaymentMethodValue(for: paymentMethod.type, intentConfiguration: intentConfig)
             }()
 
-            let clientSecret = try await confirmHandler(paymentMethod, shouldSavePaymentMethod)
+            let confirmationResult = try await confirmHandler(paymentMethod, shouldSavePaymentMethod)
+            let clientSecret = confirmationResult.clientSecret
             guard clientSecret != IntentConfiguration.COMPLETE_WITHOUT_CONFIRMING_INTENT else {
                 // Force close PaymentSheet and early exit
                 return (.completed, STPAnalyticsClient.DeferredIntentConfirmationType.completeWithoutConfirmingIntent)
             }
 
-            // 3. Retrieve the PaymentIntent or SetupIntent and confirm
-            let result: (PaymentSheetResult, STPAnalyticsClient.DeferredIntentConfirmationType?)
-            switch intentConfig.mode {
-            case let .payment(_, _, setupFutureUsage, _, paymentMethodOptions):
-                let paymentIntent = try await configuration.apiClient.retrievePaymentIntent(clientSecret: clientSecret, expand: ["payment_method"])
+            let apiClient = try confirmationResult.makeAPIClient(fallback: configuration.apiClient)
+            let changesCredentials = confirmationResult.changesCredentials(from: configuration.apiClient)
+            return try await paymentHandler.withAPIClient(confirmationResult.publishableKey == nil ? paymentHandler.apiClient : apiClient) { paymentHandler in
+                // 3. Retrieve the PaymentIntent or SetupIntent and confirm
+                let result: (PaymentSheetResult, STPAnalyticsClient.DeferredIntentConfirmationType?)
+                switch intentConfig.mode {
+                case let .payment(_, _, setupFutureUsage, _, paymentMethodOptions):
+                    let paymentIntent = try await apiClient.retrievePaymentIntent(clientSecret: clientSecret, expand: ["payment_method"])
 
-                // Check if it needs confirmation
-                if [STPPaymentIntentStatus.requiresPaymentMethod, STPPaymentIntentStatus.requiresConfirmation].contains(paymentIntent.status) {
-                    // 4a. Client-side confirmation
-                    try PaymentSheetDeferredValidator.validate(paymentIntent: paymentIntent, intentConfiguration: intentConfig, isFlowController: isFlowController)
-                    try PaymentSheetDeferredValidator.validateSFUAndPMOSFU(setupFutureUsage: setupFutureUsage,
-                                             paymentMethodOptions: paymentMethodOptions,
-                                             paymentMethodType: paymentMethod.type, paymentIntent: paymentIntent)
-                    try PaymentSheetDeferredValidator.validatePaymentMethod(intentPaymentMethod: paymentIntent.paymentMethod, paymentMethod: paymentMethod)
-                    let paymentIntentParams = makePaymentIntentParams(
-                        confirmPaymentMethodType: confirmType,
-                        paymentIntent: paymentIntent,
-                        configuration: configuration
-                    )
-                    // Set top-level SFU and PMO SFU to match the intent config
-                    setSetupFutureUsage(for: paymentMethod.type, intentConfiguration: intentConfig, on: paymentIntentParams)
-
-                    // Now that we've potentially set SFU/PMO SFU, set mandate data accordingly again.
-                    // This is a bit hacky, since the above `makePaymentIntentParams` call already set mandate data
-                    setMandateDataIfNecessary(for: paymentMethod.type, on: paymentIntentParams)
-
-                    result = await withCheckedContinuation { continuation in
-                        paymentHandler.confirmPaymentIntent(
-                            params: paymentIntentParams,
-                            authenticationContext: authenticationContext
-                        ) { status, paymentIntent, error in
-                            let intent = paymentIntent.flatMap { PaymentOrSetupIntent.paymentIntent($0) }
-                            if let intent {
-                                setDefaultPaymentMethodIfNecessary(actionStatus: status, intent: intent, configuration: configuration, paymentMethodSetAsDefault: allowsSetAsDefaultPM)
+                    // Check if it needs confirmation
+                    if [STPPaymentIntentStatus.requiresPaymentMethod, STPPaymentIntentStatus.requiresConfirmation].contains(paymentIntent.status) {
+                        // 4a. Client-side confirmation
+                        try confirmationResult.validateClientSideConfirmation(confirmType: confirmType, originalClient: configuration.apiClient)
+                        try PaymentSheetDeferredValidator.validate(paymentIntent: paymentIntent, intentConfiguration: intentConfig, isFlowController: isFlowController)
+                        try PaymentSheetDeferredValidator.validateSFUAndPMOSFU(setupFutureUsage: setupFutureUsage,
+                                                 paymentMethodOptions: paymentMethodOptions,
+                                                 paymentMethodType: paymentMethod.type, paymentIntent: paymentIntent)
+                        try PaymentSheetDeferredValidator.validatePaymentMethod(intentPaymentMethod: paymentIntent.paymentMethod, paymentMethod: paymentMethod)
+                        let paymentIntentParams = makePaymentIntentParams(
+                            confirmPaymentMethodType: confirmType,
+                            paymentIntent: paymentIntent,
+                            configuration: configuration
+                        )
+                        if changesCredentials {
+                            guard let destinationPaymentMethod = paymentIntent.paymentMethod else {
+                                throw PaymentSheetError.integrationError(nonPIIDebugDescription: "Attach the selected payment method to the destination PaymentIntent before returning confirmation credentials.")
                             }
-                            continuation.resume(returning: (makePaymentSheetResult(for: status, error: error), .client))
+                            paymentIntentParams.paymentMethodId = destinationPaymentMethod.stripeId
+                            paymentIntentParams.setAsDefaultPM = nil
+                        }
+                        // Set top-level SFU and PMO SFU to match the intent config
+                        setSetupFutureUsage(for: paymentMethod.type, intentConfiguration: intentConfig, on: paymentIntentParams)
+
+                        // Now that we've potentially set SFU/PMO SFU, set mandate data accordingly again.
+                        // This is a bit hacky, since the above `makePaymentIntentParams` call already set mandate data
+                        setMandateDataIfNecessary(for: paymentMethod.type, on: paymentIntentParams)
+
+                        result = await withCheckedContinuation { continuation in
+                            paymentHandler.confirmPaymentIntent(
+                                params: paymentIntentParams,
+                                authenticationContext: authenticationContext
+                            ) { status, paymentIntent, error in
+                                let intent = paymentIntent.flatMap { PaymentOrSetupIntent.paymentIntent($0) }
+                                if let intent, !changesCredentials {
+                                    setDefaultPaymentMethodIfNecessary(actionStatus: status, intent: intent, configuration: configuration, paymentMethodSetAsDefault: allowsSetAsDefaultPM)
+                                }
+                                continuation.resume(returning: (makePaymentSheetResult(for: status, error: error), .client))
+                            }
+                        }
+                    } else {
+                        // 4b. Server-side confirmation
+                        try PaymentSheetDeferredValidator.validatePaymentMethod(intentPaymentMethod: paymentIntent.paymentMethod, paymentMethod: paymentMethod)
+                        assert(!allowsSetAsDefaultPM, "(Debug-build-only error) The default payment methods feature is not yet supported with deferred intents. Please contact us if you'd like to use this feature via a Github issue on stripe-ios.")
+                        result = await withCheckedContinuation { continuation in
+                            paymentHandler.handleNextAction(
+                                for: paymentIntent,
+                                with: authenticationContext,
+                                returnURL: configuration.returnURL
+                            ) { status, paymentIntent, error in
+                                let intent = paymentIntent.flatMap { PaymentOrSetupIntent.paymentIntent($0) }
+                                if let intent, !changesCredentials {
+                                    setDefaultPaymentMethodIfNecessary(actionStatus: status, intent: intent, configuration: configuration, paymentMethodSetAsDefault: allowsSetAsDefaultPM)
+                                }
+                                continuation.resume(returning: (makePaymentSheetResult(for: status, error: error), .server))
+                            }
                         }
                     }
-                } else {
-                    // 4b. Server-side confirmation
-                    try PaymentSheetDeferredValidator.validatePaymentMethod(intentPaymentMethod: paymentIntent.paymentMethod, paymentMethod: paymentMethod)
-                    assert(!allowsSetAsDefaultPM, "(Debug-build-only error) The default payment methods feature is not yet supported with deferred intents. Please contact us if you'd like to use this feature via a Github issue on stripe-ios.")
-                    result = await withCheckedContinuation { continuation in
-                        paymentHandler.handleNextAction(
-                            for: paymentIntent,
-                            with: authenticationContext,
-                            returnURL: configuration.returnURL
-                        ) { status, paymentIntent, error in
-                            let intent = paymentIntent.flatMap { PaymentOrSetupIntent.paymentIntent($0) }
-                            if let intent {
-                                setDefaultPaymentMethodIfNecessary(actionStatus: status, intent: intent, configuration: configuration, paymentMethodSetAsDefault: allowsSetAsDefaultPM)
+                case .setup:
+                    let setupIntent = try await apiClient.retrieveSetupIntent(clientSecret: clientSecret, expand: ["payment_method"])
+                    if [STPSetupIntentStatus.requiresPaymentMethod, STPSetupIntentStatus.requiresConfirmation].contains(setupIntent.status) {
+                        // 4a. Client-side confirmation
+                        try confirmationResult.validateClientSideConfirmation(confirmType: confirmType, originalClient: configuration.apiClient)
+                        try PaymentSheetDeferredValidator.validate(intentConfiguration: intentConfig)
+                        try PaymentSheetDeferredValidator.validatePaymentMethod(intentPaymentMethod: setupIntent.paymentMethod, paymentMethod: paymentMethod)
+                        let setupIntentParams = makeSetupIntentParams(
+                            confirmPaymentMethodType: confirmType,
+                            setupIntent: setupIntent,
+                            configuration: configuration
+                        )
+                        if changesCredentials {
+                            guard let destinationPaymentMethod = setupIntent.paymentMethod else {
+                                throw PaymentSheetError.integrationError(nonPIIDebugDescription: "Attach the selected payment method to the destination SetupIntent before returning confirmation credentials.")
                             }
-                            continuation.resume(returning: (makePaymentSheetResult(for: status, error: error), .server))
+                            setupIntentParams.paymentMethodID = destinationPaymentMethod.stripeId
+                            setupIntentParams.setAsDefaultPM = nil
+                        }
+                        result = await withCheckedContinuation { continuation in
+                            paymentHandler.confirmSetupIntent(
+                                params: setupIntentParams,
+                                authenticationContext: authenticationContext
+                            ) { status, setupIntent, error in
+                                let intent = setupIntent.flatMap { PaymentOrSetupIntent.setupIntent($0) }
+                                if let intent, !changesCredentials {
+                                    setDefaultPaymentMethodIfNecessary(actionStatus: status, intent: intent, configuration: configuration, paymentMethodSetAsDefault: allowsSetAsDefaultPM)
+                                }
+                                continuation.resume(returning: (makePaymentSheetResult(for: status, error: error), .client))
+                            }
+                        }
+                    } else {
+                        // 4b. Server-side confirmation
+                        try PaymentSheetDeferredValidator.validatePaymentMethod(intentPaymentMethod: setupIntent.paymentMethod, paymentMethod: paymentMethod)
+                        assert(!allowsSetAsDefaultPM, "(Debug-build-only error) The default payment methods feature is not yet supported with deferred intents. Please contact us if you'd like to use this feature via a Github issue on stripe-ios.")
+                        result = await withCheckedContinuation { continuation in
+                            paymentHandler.handleNextAction(
+                                for: setupIntent,
+                                with: authenticationContext,
+                                returnURL: configuration.returnURL
+                            ) { status, setupIntent, error in
+                                let intent = setupIntent.flatMap { PaymentOrSetupIntent.setupIntent($0) }
+                                if let intent, !changesCredentials {
+                                    setDefaultPaymentMethodIfNecessary(actionStatus: status, intent: intent, configuration: configuration, paymentMethodSetAsDefault: allowsSetAsDefaultPM)
+                                }
+                                continuation.resume(returning: (makePaymentSheetResult(for: status, error: error), .server))
+                            }
                         }
                     }
                 }
-            case .setup:
-                let setupIntent = try await configuration.apiClient.retrieveSetupIntent(clientSecret: clientSecret, expand: ["payment_method"])
-                if [STPSetupIntentStatus.requiresPaymentMethod, STPSetupIntentStatus.requiresConfirmation].contains(setupIntent.status) {
-                    // 4a. Client-side confirmation
-                    try PaymentSheetDeferredValidator.validate(intentConfiguration: intentConfig)
-                    try PaymentSheetDeferredValidator.validatePaymentMethod(intentPaymentMethod: setupIntent.paymentMethod, paymentMethod: paymentMethod)
-                    let setupIntentParams = makeSetupIntentParams(
-                        confirmPaymentMethodType: confirmType,
-                        setupIntent: setupIntent,
-                        configuration: configuration
-                    )
-                    result = await withCheckedContinuation { continuation in
-                        paymentHandler.confirmSetupIntent(
-                            params: setupIntentParams,
-                            authenticationContext: authenticationContext
-                        ) { status, setupIntent, error in
-                            let intent = setupIntent.flatMap { PaymentOrSetupIntent.setupIntent($0) }
-                            if let intent {
-                                setDefaultPaymentMethodIfNecessary(actionStatus: status, intent: intent, configuration: configuration, paymentMethodSetAsDefault: allowsSetAsDefaultPM)
-                            }
-                            continuation.resume(returning: (makePaymentSheetResult(for: status, error: error), .client))
-                        }
-                    }
-                } else {
-                    // 4b. Server-side confirmation
-                    try PaymentSheetDeferredValidator.validatePaymentMethod(intentPaymentMethod: setupIntent.paymentMethod, paymentMethod: paymentMethod)
-                    assert(!allowsSetAsDefaultPM, "(Debug-build-only error) The default payment methods feature is not yet supported with deferred intents. Please contact us if you'd like to use this feature via a Github issue on stripe-ios.")
-                    result = await withCheckedContinuation { continuation in
-                        paymentHandler.handleNextAction(
-                            for: setupIntent,
-                            with: authenticationContext,
-                            returnURL: configuration.returnURL
-                        ) { status, setupIntent, error in
-                            let intent = setupIntent.flatMap { PaymentOrSetupIntent.setupIntent($0) }
-                            if let intent {
-                                setDefaultPaymentMethodIfNecessary(actionStatus: status, intent: intent, configuration: configuration, paymentMethodSetAsDefault: allowsSetAsDefaultPM)
-                            }
-                            continuation.resume(returning: (makePaymentSheetResult(for: status, error: error), .server))
-                        }
-                    }
-                }
+                return result
             }
-            return result
         } catch {
             return (.failed(error: error), nil)
         }
