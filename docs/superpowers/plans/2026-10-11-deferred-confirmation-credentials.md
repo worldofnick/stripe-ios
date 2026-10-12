@@ -54,3 +54,23 @@ All simulator runs used the existing iPhone 12 mini on iOS 18.0 (`79CA7DB2-0A4B-
 - Independent production review found no remaining concrete correctness blocker after addressing account-scoped Radar data and Dashboard MOTO handling.
 
 The full-suite Link failures were a five-second captcha timeout and a missing web-flow delegate assertion in unchanged code. Failure diagnostics are exported at `/private/tmp/deferred-credentials-diagnostics`; layout failures occurred before image comparison and provided no failure screenshot attachments. Existing snapshot references were not changed.
+
+## Payment handler reuse audit
+
+The original handler is reused when no override is returned. With an override, `withAPIClient` retains a separate handler for the whole asynchronous attempt and forwards parent cancellation/URL callbacks to it. The original client's credentials are never changed. The child preserves 3DS customization, redirect simulation, the redirect shim, and the analytics client.
+
+Confirmation creates action parameters that retain the selected API client. Intent refresh, polling, 3DS authentication, challenge completion, and source cancellation use that action client; server-provided 3DS publishable-key overrides remain supported. PaymentSheet, FlowController, EmbeddedPaymentElement, and Link initialize their parent handlers using their configuration's API client.
+
+The audit found and reproduced an overlap bug: the same-client fast path bypassed the scope guard, and same-client attempts did not reserve the handler during retrieval. A per-handler scope flag now rejects overlapping original/override combinations before any second operation starts and is released on success or error. The regression covers all four combinations. Additional coverage checks real declined confirmations followed by another override and then original credentials for both intent types, global-lock cleanup, and child-handler release after an error.
+
+Validation: the overlap test failed before the fix (`/private/tmp/handler-reuse-red.xcresult`). After the fix, all 45 credential/deferred-flow tests and all 27 shared-handler regressions passed (`/private/tmp/handler-reuse-regression.xcresult` and `/private/tmp/handler-reuse-shared.xcresult`). Strict lint and whitespace checks passed. Independent review found no remaining concrete correctness issue in the production change. The full PaymentSheet suite was not repeated for this focused fix; its prior baseline/flaky failures remain documented above.
+
+### Follow-up: connected account omitted from hosted confirmation challenge
+
+Owner/repository: **unknown**, recorded at the user's request. This is a pre-existing limitation of the `intent_confirmation_challenge` web flow, separate from the native 3DS flows.
+
+- The iOS bridge in `StripePayments/StripePayments/Source/Internal/IntentConfirmationChallengeViewController.swift` returns only `clientSecret` and `publishableKey` from `getInitParams`.
+- The hosted page at `https://b.stripecdn.com/mobile-confirmation-challenge/assets/index.html?v=1` currently loads `index-cbgnpl90.js`, whose initialization calls `window.Stripe(params.publishableKey)` without `stripeAccount`.
+- Native challenge cancellation and subsequent intent retrieval still use the correctly configured API client, but the web challenge does not receive its connected-account header value.
+- Follow-up requires both the iOS bridge to send the account and the hosted page to pass it to Stripe.js. Sending an extra native field alone would not fix the current hosted page. Validate with a real connected-account challenge after both changes.
+- No hosted-page or bridge changes were made during this audit. An account-specific publishable key without a Stripe-Account header does not have this particular omission.

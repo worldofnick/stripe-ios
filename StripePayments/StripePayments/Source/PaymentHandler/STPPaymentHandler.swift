@@ -375,16 +375,20 @@ public class STPPaymentHandler: NSObject {
         self.subhandler = subhandler
     }
     private var subhandler: STPPaymentHandler?
+    private var isUsingAPIClient = false
 
     /// Runs one confirmation with an isolated client while keeping cancellation attached to this handler.
     @_spi(STP) @MainActor public func withAPIClient<T>(
         _ apiClient: STPAPIClient,
         operation: (STPPaymentHandler) async throws -> T
     ) async throws -> T {
-        guard apiClient !== self.apiClient else { return try await operation(self) }
-        guard subhandler == nil && !isInProgress else {
+        guard !isUsingAPIClient && subhandler == nil && !isInProgress else {
             throw _error(for: .noConcurrentActionsErrorCode)
         }
+        // Reserve the handler during retrieval too, before confirm/next-action takes the global lock.
+        isUsingAPIClient = true
+        defer { isUsingAPIClient = false }
+        guard apiClient !== self.apiClient else { return try await operation(self) }
         let handler = STPPaymentHandler(apiClient: apiClient, threeDSCustomizationSettings: threeDSCustomizationSettings)
         handler._simulateAppToAppRedirect = _simulateAppToAppRedirect
         handler._redirectShim = _redirectShim

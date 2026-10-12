@@ -294,6 +294,44 @@ final class DeferredConfirmationCredentialNetworkTests: APIStubbedTestCase, STPA
         }
     }
 
+    func testFailedConfirmationCanRetryWithAnotherClientThenOriginalClient() async {
+        for setup in [false, true] {
+            let path = setup ? "/v1/setup_intents/seti_test" : "/v1/payment_intents/pi_test"
+            let responses: [(PaymentSheet.IntentConfiguration.ConfirmationResult, String, String?)] = [
+                (result(setup: setup), destinationKey, nil),
+                (.init(clientSecret: setup ? "seti_test_secret_test" : "pi_test_secret_test", publishableKey: "pk_test_retry", stripeAccount: "acct_retry"), "pk_test_retry", "acct_retry"),
+                (result(setup: setup, override: false), originalKey, "acct_original"),
+            ]
+            for (index, response) in responses.enumerated() {
+                let (confirmationResult, key, account) = response
+                let retrieved = expectation(description: "retrieve attempt \(index)")
+                let confirmed = expectation(description: "confirm attempt \(index)")
+                stub(condition: isPath(path)) { request in
+                    self.assertCredentials(request, key: key, account: account)
+                    retrieved.fulfill()
+                    return HTTPStubsResponse(jsonObject: self.intent(setup: setup, status: "requires_confirmation"), statusCode: 200, headers: nil)
+                }
+                stub(condition: isPath(path + "/confirm")) { request in
+                    self.assertCredentials(request, key: key, account: account)
+                    confirmed.fulfill()
+                    if index == 0 {
+                        return HTTPStubsResponse(jsonObject: ["error": ["type": "card_error", "code": "card_declined", "message": "Declined"]], statusCode: 402, headers: nil)
+                    }
+                    return HTTPStubsResponse(jsonObject: self.intent(setup: setup, status: "succeeded"), statusCode: 200, headers: nil)
+                }
+                let outcome = await run(setup: setup, response: confirmationResult)
+                if index == 0 {
+                    guard case .failed = outcome else { XCTFail("Expected a declined confirmation"); return }
+                } else {
+                    guard case .completed = outcome else { XCTFail("Expected a successful retry: \(outcome)"); return }
+                }
+                XCTAssertFalse(handler.isInProgress)
+                XCTAssertNil(handler.currentAction)
+                await fulfillment(of: [retrieved, confirmed], timeout: 3)
+            }
+        }
+    }
+
     func testDestinationPaymentMethodIsNotSavedAsOriginalCustomersDefault() async {
         let customerID = "cus_credentials_test"
         let previous = CustomerPaymentOption.localDefaultPaymentMethod(for: customerID)
@@ -453,8 +491,10 @@ final class DeferredConfirmationCredentialNetworkTests: APIStubbedTestCase, STPA
     func testParentCancelsIsolatedNative3DSChallengeAndReleasesChildAfterError() async throws {
         enum TestError: Error { case expected }
         let client = try result(setup: false).makeAPIClient(fallback: configuration.apiClient)
+        weak var releasedHandler: STPPaymentHandler?
         do {
             try await handler.withAPIClient(client) { child in
+                releasedHandler = child
                 let transaction = CancellationTrackingTransaction()
                 let action = STPPaymentHandlerPaymentIntentActionParams(apiClient: client, authenticationContext: self, threeDSCustomizationSettings: child.threeDSCustomizationSettings, paymentIntent: STPPaymentIntent.decodedObject(fromAPIResponse: self.intent(status: "requires_action"))!, returnURL: nil) { _, _, _ in }
                 action.threeDS2Transaction = transaction
@@ -466,6 +506,7 @@ final class DeferredConfirmationCredentialNetworkTests: APIStubbedTestCase, STPA
             }
             XCTFail("Expected error")
         } catch TestError.expected { }
+        XCTAssertNil(releasedHandler)
         try await handler.withAPIClient(client) { child in
             XCTAssertNil(child.currentAction)
             XCTAssertTrue(child.apiClient === client)
@@ -475,12 +516,18 @@ final class DeferredConfirmationCredentialNetworkTests: APIStubbedTestCase, STPA
 
     func testConcurrentCredentialScopesCannotReplaceActiveChild() async throws {
         let client = try result(setup: false).makeAPIClient(fallback: configuration.apiClient)
-        try await handler.withAPIClient(client) { _ in
-            do {
-                try await self.handler.withAPIClient(client) { _ in XCTFail("Must not replace the active child") }
-                XCTFail("Expected concurrent confirmation error")
-            } catch {
-                XCTAssertEqual((error as NSError).code, STPPaymentHandlerErrorCode.noConcurrentActionsErrorCode.rawValue)
+        for activeClient in [configuration.apiClient, client] {
+            try await handler.withAPIClient(activeClient) { activeHandler in
+                XCTAssertEqual(activeHandler === self.handler, activeClient === self.configuration.apiClient)
+                for competingClient in [self.configuration.apiClient, client] {
+                    do {
+                        try await self.handler.withAPIClient(competingClient) { _ in XCTFail("Must not enter a second confirmation scope") }
+                        XCTFail("Expected concurrent confirmation error")
+                    } catch {
+                        XCTAssertEqual((error as NSError).code, STPPaymentHandlerErrorCode.noConcurrentActionsErrorCode.rawValue)
+                    }
+                }
+                XCTAssertTrue(activeHandler.apiClient === activeClient)
             }
         }
     }

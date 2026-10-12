@@ -60,6 +60,8 @@ Changing credentials does not transfer account-owned objects. For client confirm
 
 `confirmHandlerWithConfirmationToken` returns the same result type. When changing credentials, confirm the intent on your server first; a token created using the original credentials is not sent to a different account. Server confirmation is also required when changing credentials for a saved payment method carrying Radar challenge data or for a Dashboard user-key flow. Recollected CVC remains supported for client confirmation. Apple Pay retains its existing intent-status and authentication limitations; this feature does not add arbitrary next-action presentation inside Apple Pay.
 
+Known limitation: the hosted `intent_confirmation_challenge` web flow currently receives the publishable key but does not forward `Stripe-Account` to Stripe.js. Connected-account support for that specific challenge needs a coordinated SDK bridge and hosted-page update. Native 3DS authentication and redirects use the returned confirmation credentials.
+
 ## Manual linking
 
 If you link this library manually, use a version from our [releases](https://github.com/stripe/stripe-ios/releases) page and make sure to embed <ins>all</ins> of the following frameworks:
